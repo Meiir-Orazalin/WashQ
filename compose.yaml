@@ -1,0 +1,23 @@
+name: washqueue
+
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-washqueue}
+      POSTGRES_USER: ${POSTGRES_USER:-washqueue}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-washqueue_dev}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-washqueue} -d ${POSTGRES_DB:-washqueue}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:

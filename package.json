@@ -1,0 +1,37 @@
+{
+  "name": "washqueue-kz",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WashQueue KZ modular monolith",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env node_modules/turbo/bin/turbo run dev",
+    "build": "node --env-file-if-exists=.env node_modules/turbo/bin/turbo run build",
+    "lint": "eslint playwright.config.ts e2e infrastructure/scripts && turbo run lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit && turbo run typecheck",
+    "test": "turbo run test",
+    "test:integration": "node --env-file-if-exists=.env node_modules/turbo/bin/turbo run test:integration",
+    "test:e2e": "playwright test",
+    "doctor": "node infrastructure/scripts/verify-toolchain.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @washqueue/api db:generate",
+    "db:migrate": "pnpm --filter @washqueue/api db:migrate",
+    "db:seed": "pnpm --filter @washqueue/api db:seed"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@types/node": "24.13.3",
+    "@washqueue/eslint-config": "workspace:*",
+    "@washqueue/typescript-config": "workspace:*",
+    "eslint": "10.7.0",
+    "prettier": "3.9.6",
+    "turbo": "2.10.5",
+    "typescript": "6.0.3"
+  }
+}

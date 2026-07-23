@@ -1,0 +1,35 @@
+# System overview
+
+WashQueue KZ is a TypeScript modular monolith in a pnpm/Turborepo monorepo.
+
+```text
+Browser
+  │ HTTPS / REST JSON
+  ▼
+apps/web (Next.js App Router)
+  │ /api/v1 contracts
+  ▼
+apps/api (NestJS)
+  │ Prisma infrastructure adapter
+  ▼
+PostgreSQL
+```
+
+`packages/contracts` defines public Zod transport contracts shared by web and
+API. It contains no framework or persistence types. `apps/api` is one deployable
+process; future business capabilities are modules within that process, not
+services on a network.
+
+Version 0 contains only technical capabilities: configuration, HTTP safety,
+database connectivity, health checks, API documentation, a development status
+page, and test/CI foundations.
+
+## Runtime boundaries
+
+- The browser communicates only through the versioned REST API.
+- The web application parses API responses before using them.
+- The API owns persistence access; Prisma is confined to database and future
+  module-infrastructure code.
+- PostgreSQL is the only local infrastructure dependency.
+- The liveness check does not touch PostgreSQL. Readiness executes `SELECT 1`
+  and exposes only `database: up` or a sanitized 503 response.

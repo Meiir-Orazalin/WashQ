@@ -1,0 +1,9 @@
+{
+  "extends": "@washqueue/typescript-config/library.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "tsBuildInfoFile": "node_modules/.cache/contracts.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"]
+}
