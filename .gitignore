@@ -11,6 +11,7 @@ test-results/
 !.env.example
 
 apps/api/src/generated/prisma/
+apps/web/next-env.d.ts
 *.log
 .DS_Store
 .idea/
