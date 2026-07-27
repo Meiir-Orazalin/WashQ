@@ -1,7 +1,8 @@
 # Security baseline
 
-Version 0 establishes real safeguards without pretending that future identity
-or authorization exists.
+The project establishes safeguards only as the corresponding business slices
+arrive and does not imply that authentication endpoints or authorization exist
+before they are implemented.
 
 ## Implemented
 
@@ -28,13 +29,20 @@ or authorization exists.
   `PasswordHasher` interface, and only the resulting hash reaches persistence.
 - Failure logging records method, path, request ID, status, and exception type;
   it does not record request bodies.
+- Access-token signing configuration is validated at API startup, stays
+  server-side, and rejects weak or obvious placeholder secrets in production.
+- Access-token claims contain only immutable identity and token-lifecycle data.
+- Refresh tokens contain 256 bits of cryptographic randomness. Only their
+  SHA-256 hashes reach PostgreSQL, and repository reads omit those hashes.
+- Refresh sessions have explicit expiration and revocation timestamps, permit
+  multiple concurrent sessions, and are deleted with their user.
 
 ## Explicit future boundaries
 
-Login, authentication, and authorization arrive in later Version 1 slices and
-must default to denial for protected use cases. Rate limiting, audit logging,
-secure cookies, monitoring, and production hardening arrive in later versions
-when their flows exist.
+Public login, refresh, logout, authentication guards, and authorization arrive
+in later Version 1 slices and must default to denial for protected use cases.
+Rate limiting, audit logging, secure cookies, monitoring, and production
+hardening arrive in later versions when their flows exist.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

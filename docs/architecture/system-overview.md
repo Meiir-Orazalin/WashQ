@@ -20,10 +20,13 @@ API. It contains no framework or persistence types. `apps/api` is one deployable
 process; future business capabilities are modules within that process, not
 services on a network.
 
-Version 0 contains the technical foundation. Version 1.1 adds only customer
+Version 0 contains the technical foundation. Version 1.1 adds customer
 registration: shared request/response contracts, an auth registration use case,
 users persistence, Argon2id password hashing, and the `/register` web route.
-Login, tokens, sessions, vehicles, and organization capabilities do not exist.
+Version 1.2.1 adds server-only authentication configuration, token service
+ports, cryptographic adapters, and refresh-session persistence. Public login,
+refresh, logout, current-user, vehicles, and organization capabilities do not
+exist.
 
 ## Runtime boundaries
 

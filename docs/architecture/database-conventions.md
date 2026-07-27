@@ -52,3 +52,21 @@ Migration `20260727094726_add_users_for_customer_registration` creates the
 table and its unique email index. Application normalization and the database
 constraint together make concurrent duplicate registrations resolve to one
 created user and one controlled conflict.
+
+## Version 1.2.1 refresh-session model
+
+The `refresh_sessions` table contains only:
+
+| SQL column   | Rule                                             |
+| ------------ | ------------------------------------------------ |
+| `id`         | PostgreSQL-generated UUID primary key            |
+| `user_id`    | required user UUID, indexed, cascading delete    |
+| `token_hash` | required unique `varchar(64)`, never a raw token |
+| `expires_at` | required UTC-aware expiration timestamp          |
+| `revoked_at` | nullable UTC-aware revocation timestamp          |
+| `created_at` | UTC-aware creation timestamp                     |
+| `updated_at` | UTC-aware update timestamp                       |
+
+Migration `20260727104041_add_refresh_sessions` creates the table, unique token
+hash index, user lookup index, and cascading foreign key. Multiple rows may
+belong to one user.

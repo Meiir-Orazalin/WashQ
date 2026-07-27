@@ -29,6 +29,13 @@ pnpm db:migrate
 pnpm dev
 ```
 
+Before starting the API, replace the development-only
+`ACCESS_TOKEN_SIGNING_SECRET` example with a private value. Authentication
+configuration has no production defaults: production startup requires a
+non-placeholder secret of at least 32 characters plus valid access- and
+refresh-token lifetimes. Tests receive isolated values from the test
+environment.
+
 Default development credentials are local-only:
 
 ```text
@@ -58,3 +65,8 @@ data.
 Version 1.1 creates the `users` table through
 `20260727094726_add_users_for_customer_registration`. A fresh environment must
 run `pnpm db:migrate` before registration or integration testing.
+
+Version 1.2.1 adds `refresh_sessions` through
+`20260727104041_add_refresh_sessions`. Run `pnpm db:generate` after schema
+changes and apply the complete migration history to both development and
+dedicated test databases.

@@ -11,10 +11,14 @@ Status: in progress.
 
 - [x] Version 1.1 — Customer registration.
 - [ ] Version 1.2 — Customer login and the minimum token lifecycle.
+  - [x] Version 1.2.1 — Authentication configuration and session-token
+        foundation.
+  - [ ] Version 1.2.2 — Customer login.
+  - [ ] Later Version 1.2 slices — refresh-token rotation and logout.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
-Completing Version 1.1 does not complete Version 1.
+Completing Version 1.2.1 does not complete Version 1.2 or Version 1.
 
 ## Version 2 — Business onboarding
 
