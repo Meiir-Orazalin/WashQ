@@ -16,6 +16,7 @@
 GET /api/v1/health
 GET /api/v1/health/ready
 POST /api/v1/auth/register
+POST /api/v1/auth/login
 ```
 
 Liveness returns:
@@ -62,8 +63,37 @@ Invalid input returns `400 VALIDATION_ERROR`. A duplicate normalized email
 returns `409 EMAIL_ALREADY_REGISTERED`. Registration does not return or create
 tokens or sessions, and responses never include a password or password hash.
 
-Version 1.2.1 adds no public endpoint or transport contract. In particular,
-login, refresh, logout, and current-user routes remain absent.
+Customer login accepts:
+
+```json
+{
+  "email": "meiir@example.com",
+  "password": "example-password"
+}
+```
+
+The email is trimmed and lowercased. The password is passed unchanged to the
+password-verification boundary. Success returns `200 OK`:
+
+```json
+{
+  "user": {
+    "id": "df4e7850-e329-4679-91f1-77b409d93f4f",
+    "firstName": "Meiir",
+    "lastName": "Orazalin",
+    "email": "meiir@example.com"
+  },
+  "accessToken": "signed-access-token",
+  "accessTokenExpiresAt": "2026-07-27T12:15:00.000Z"
+}
+```
+
+Login also sets the opaque refresh token in the `washqueue_refresh` HttpOnly
+cookie. The refresh token, its hash, and refresh-session metadata are absent
+from JSON. Unknown email and incorrect password both return
+`401 INVALID_CREDENTIALS` with the message `Invalid email or password`.
+
+Version 1.2.2 does not add refresh, logout, or current-user routes.
 
 ## Errors
 

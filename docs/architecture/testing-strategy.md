@@ -27,6 +27,12 @@ verification tests, refresh-token entropy and hash tests, and real-PostgreSQL
 refresh-session repository tests. Integration test files execute sequentially
 because they share one disposable database and clear their owned tables.
 
+Version 1.2.2 adds strict login contract tests, application failure-ordering
+tests, cookie and generic-credential HTTP tests, OpenAPI coverage, and
+real-PostgreSQL login/session tests. Security assertions cover response
+privacy, hashed-only persistence, indistinguishable credential errors, cookie
+flags, and no-cookie behavior after token or persistence failures.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

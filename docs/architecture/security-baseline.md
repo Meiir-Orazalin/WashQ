@@ -36,12 +36,21 @@ before they are implemented.
   SHA-256 hashes reach PostgreSQL, and repository reads omit those hashes.
 - Refresh sessions have explicit expiration and revocation timestamps, permit
   multiple concurrent sessions, and are deleted with their user.
+- Customer login normalizes email through the shared contract and sends the raw
+  password only to the Argon2id verification boundary.
+- Unknown-email login attempts perform verification against a valid dummy hash.
+  Unknown email, wrong password, and credential-verification failure return the
+  same generic response.
+- A successful login persists the refresh-session hash before returning any
+  token. The raw refresh token is exposed only through an HttpOnly,
+  `SameSite=Lax`, auth-path-scoped cookie.
+- Refresh cookies are `Secure` in production and omit `Domain`.
 
 ## Explicit future boundaries
 
-Public login, refresh, logout, authentication guards, and authorization arrive
-in later Version 1 slices and must default to denial for protected use cases.
-Rate limiting, audit logging, secure cookies, monitoring, and production
+Refresh, logout, authentication guards, and authorization arrive in later
+Version 1 slices and must default to denial for protected use cases. Rate
+limiting, audit logging, expanded CSRF controls, monitoring, and production
 hardening arrive in later versions when their flows exist.
 
 Production databases must use a dedicated least-privilege account and encrypted
