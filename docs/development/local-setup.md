@@ -55,5 +55,6 @@ Stop applications with `Ctrl+C`. Stop PostgreSQL with `docker compose down`.
 Use `docker compose down -v` only when intentionally deleting local database
 data.
 
-Version 0 has no tables, so `pnpm db:migrate` may correctly report no schema
-change.
+Version 1.1 creates the `users` table through
+`20260727094726_add_users_for_customer_registration`. A fresh environment must
+run `pnpm db:migrate` before registration or integration testing.

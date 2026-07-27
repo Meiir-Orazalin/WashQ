@@ -7,8 +7,14 @@ documentation.
 
 ## Version 1 — Customer identity and vehicles
 
-Registration, login, access and refresh tokens, customer profile, and vehicle
-create, edit, delete, and list operations.
+Status: in progress.
+
+- [x] Version 1.1 — Customer registration.
+- [ ] Version 1.2 — Customer login and the minimum token lifecycle.
+- [ ] Later Version 1 slices — customer profile and vehicle create, edit,
+      delete, and list operations.
+
+Completing Version 1.1 does not complete Version 1.
 
 ## Version 2 — Business onboarding
 

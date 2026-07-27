@@ -15,6 +15,7 @@
 ```text
 GET /api/v1/health
 GET /api/v1/health/ready
+POST /api/v1/auth/register
 ```
 
 Liveness returns:
@@ -29,6 +30,37 @@ Liveness returns:
 
 Readiness adds `"checks": { "database": "up" }`. A database failure returns 503
 without server, database, connection string, or exception details.
+
+Customer registration accepts:
+
+```json
+{
+  "firstName": "Meiir",
+  "lastName": "Orazalin",
+  "email": "meiir@example.com",
+  "password": "example-password"
+}
+```
+
+`lastName` is optional. The API trims names, converts an empty last name to
+`null`, lowercases the trimmed email, and leaves the password unchanged before
+hashing it. Success returns `201 Created`:
+
+```json
+{
+  "user": {
+    "id": "df4e7850-e329-4679-91f1-77b409d93f4f",
+    "firstName": "Meiir",
+    "lastName": "Orazalin",
+    "email": "meiir@example.com",
+    "createdAt": "2026-07-27T12:00:00.000Z"
+  }
+}
+```
+
+Invalid input returns `400 VALIDATION_ERROR`. A duplicate normalized email
+returns `409 EMAIL_ALREADY_REGISTERED`. Registration does not return or create
+tokens or sessions, and responses never include a password or password hash.
 
 ## Errors
 

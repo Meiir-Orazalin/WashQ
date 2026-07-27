@@ -17,6 +17,11 @@ Tests are selected by risk and boundary.
   deterministic foundation smoke test; future flows should use real API
   boundaries and isolated test data where practical.
 
+Version 1.1 adds contract coverage for normalization and response privacy,
+application tests for hashing and persistence inputs, real-PostgreSQL repository
+and concurrent-uniqueness tests, HTTP status/error tests, registration component
+state tests, and one deterministic Playwright registration flow.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are
@@ -29,4 +34,6 @@ Tests are selected by risk and boundary.
 - Failed tests are fixed, not skipped or deleted.
 
 CI runs formatting, linting, type checking, unit tests, PostgreSQL integration
-tests, and application builds on pushes to `main` and all pull requests.
+tests, and application builds on pushes to `main` and all pull requests. CI
+deploys migrations to its disposable PostgreSQL database before integration
+tests.
