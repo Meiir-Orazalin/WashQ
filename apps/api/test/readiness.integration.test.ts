@@ -1,36 +1,25 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { readinessResponseSchema, serviceName } from '@washqueue/contracts';
+import { ConfigService } from '@nestjs/config';
+import { readinessResponseSchema } from '@washqueue/contracts';
 import { describe, expect, it } from 'vitest';
-import { PrismaClient } from '../src/generated/prisma/client.js';
+import { PrismaService } from '../src/database/prisma.service.js';
+import { HealthService } from '../src/health/health.service.js';
+import { getSafeTestDatabaseUrl } from './safe-test-database-url.js';
 
 describe('PostgreSQL readiness integration', () => {
-  it('connects and executes the readiness query', async () => {
-    const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL is required for integration tests');
-    }
-
-    const prisma = new PrismaClient({
-      adapter: new PrismaPg({ connectionString: databaseUrl }),
-    });
+  it('reports readiness through the production database adapter', async () => {
+    const databaseUrl = getSafeTestDatabaseUrl(process.env);
+    const config = new ConfigService({ database: { url: databaseUrl } });
+    const prisma = new PrismaService(config);
+    const health = new HealthService(prisma);
 
     try {
-      await prisma.$connect();
-      const result = await prisma.$queryRaw<{ readiness: number }[]>`
-        SELECT 1 AS readiness
-      `;
+      await prisma.onModuleInit();
+      const response = await health.readiness();
 
-      expect(result).toEqual([{ readiness: 1 }]);
-      expect(
-        readinessResponseSchema.parse({
-          status: 'ok',
-          service: serviceName,
-          timestamp: '2026-07-23T12:00:00.000Z',
-          checks: { database: 'up' },
-        }),
-      ).toBeDefined();
+      expect(response).not.toBeNull();
+      expect(readinessResponseSchema.parse(response)).toEqual(response);
     } finally {
-      await prisma.$disconnect();
+      await prisma.onModuleDestroy();
     }
   });
 });

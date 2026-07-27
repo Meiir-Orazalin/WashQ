@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      NODE_ENV: test
       API_PORT: 4000
       DATABASE_URL: postgresql://washqueue:washqueue_ci@localhost:5432/washqueue_ci?schema=public
+      TEST_DATABASE_URL: postgresql://washqueue:washqueue_ci@localhost:5432/washqueue_ci?schema=public
       CORS_ORIGINS: http://localhost:3000
       LOG_LEVEL: error
       API_DOCS_ENABLED: 'false'
@@ -70,9 +70,15 @@ jobs:
 
       - name: Run unit tests
         run: pnpm test
+        env:
+          NODE_ENV: test
 
       - name: Run PostgreSQL integration tests
         run: pnpm test:integration
+        env:
+          NODE_ENV: test
 
       - name: Build applications
         run: pnpm build
+        env:
+          NODE_ENV: production

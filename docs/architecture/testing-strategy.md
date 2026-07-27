@@ -9,7 +9,8 @@ Tests are selected by risk and boundary.
 - API unit/HTTP tests run Nest controllers with a deterministic database
   readiness port and verify status codes, contracts, and sanitized errors.
 - Database integration tests use a real disposable PostgreSQL instance and
-  execute the Prisma readiness query.
+  execute the production Prisma readiness adapter. They require a local
+  `TEST_DATABASE_URL` whose database name ends in `_test` or `_ci`.
 - Web component tests use Vitest, jsdom, and Testing Library to verify loading,
   success, and failure behavior at user-visible boundaries.
 - Playwright covers critical browser workflows. Version 0 has one intercepted,

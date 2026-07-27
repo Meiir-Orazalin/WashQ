@@ -26,7 +26,7 @@ will keep presentation, application, domain, and infrastructure boundaries.
 
 ```bash
 corepack enable
-pnpm doctor
+pnpm run doctor
 cp .env.example .env
 docker compose up -d
 pnpm install

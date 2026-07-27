@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const booleanFromString = z
   .enum(['true', 'false'])
-  .default('true')
+  .default('false')
   .transform((value) => value === 'true');
 
 export const environmentSchema = z.object({

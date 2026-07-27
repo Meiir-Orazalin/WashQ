@@ -24,6 +24,17 @@ describe('ApiHealthStatus', () => {
     vi.unstubAllGlobals();
   });
 
+  it('shows a checking state while the health request is pending', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() => new Promise<Response>(() => undefined)),
+    );
+
+    renderStatus();
+
+    expect(screen.getByText('Checking')).toBeInTheDocument();
+  });
+
   it('shows an available state for a contract-valid response', async () => {
     vi.stubGlobal(
       'fetch',

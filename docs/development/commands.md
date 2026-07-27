@@ -16,11 +16,13 @@ Run commands from the repository root.
 | `pnpm db:generate`      | Generate Prisma Client                               |
 | `pnpm db:migrate`       | Create/apply a local Prisma development migration    |
 | `pnpm db:seed`          | Run the versioned seed entry point                   |
-| `pnpm doctor`           | Verify the Node, pnpm, and Git baseline              |
+| `pnpm run doctor`       | Verify the Node, pnpm, and Git baseline              |
 
-`pnpm test:integration` requires PostgreSQL and `DATABASE_URL`. Start the Compose
-service first. Playwright uses the locally installed stable Google Chrome on
-desktop and emulated mobile viewports.
+`pnpm test:integration` requires PostgreSQL and the dedicated
+`TEST_DATABASE_URL`. The test runner rejects non-test database names and remote
+hosts. Start the Compose service first. Playwright uses the locally installed
+stable Google Chrome on desktop and emulated mobile viewports.
 
-CI uses `prisma migrate deploy` when migrations exist; local development alone
-uses `prisma migrate dev`.
+Local development uses `prisma migrate dev`. The first change that introduces a
+schema migration must add `prisma migrate deploy` to CI before its persistence
+integration tests.

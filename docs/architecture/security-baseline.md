@@ -6,8 +6,12 @@ or authorization exists.
 ## Implemented
 
 - Zod validates API and public web environment values at startup/build time.
+- Production web builds require an explicit public API base URL; they do not
+  silently target localhost.
 - `.env` files and generated credentials are ignored by Git.
 - CORS origins are explicit environment configuration.
+- OpenAPI documentation is disabled by default and enabled explicitly in local
+  development.
 - Helmet sets secure HTTP response headers.
 - Express implementation headers are disabled.
 - JSON and form request bodies are limited to 1 MB.

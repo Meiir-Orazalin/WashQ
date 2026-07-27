@@ -7,7 +7,7 @@ pnpm version through Corepack:
 
 ```bash
 corepack enable
-pnpm doctor
+pnpm run doctor
 ```
 
 If `/usr/local/bin` is not writable on macOS, enable Corepack in a user-owned
@@ -32,11 +32,17 @@ pnpm dev
 Default development credentials are local-only:
 
 ```text
-database: washqueue
+application database: washqueue
+integration-test database: washqueue_test
 user: washqueue
 password: washqueue_dev
 port: 5432
 ```
+
+The Compose initialization script creates `washqueue_test` only when the
+PostgreSQL volume is initialized. If the volume predates that script, recreate
+the disposable local volume with `docker compose down -v` followed by
+`docker compose up -d`, after confirming it contains no data you need.
 
 Open:
 
