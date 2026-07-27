@@ -14,5 +14,10 @@ export function applicationConfiguration() {
     database: {
       url: environment.DATABASE_URL,
     },
+    authentication: {
+      accessTokenSigningSecret: environment.ACCESS_TOKEN_SIGNING_SECRET,
+      accessTokenLifetimeSeconds: environment.ACCESS_TOKEN_LIFETIME_SECONDS,
+      refreshTokenLifetimeSeconds: environment.REFRESH_TOKEN_LIFETIME_SECONDS,
+    },
   };
 }

@@ -22,6 +22,11 @@ application tests for hashing and persistence inputs, real-PostgreSQL repository
 and concurrent-uniqueness tests, HTTP status/error tests, registration component
 state tests, and one deterministic Playwright registration flow.
 
+Version 1.2.1 adds startup-configuration tests, access-token issue and
+verification tests, refresh-token entropy and hash tests, and real-PostgreSQL
+refresh-session repository tests. Integration test files execute sequentially
+because they share one disposable database and clear their owned tables.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

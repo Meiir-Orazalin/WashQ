@@ -2,9 +2,10 @@
 
 WashQueue KZ is a planned car wash marketplace and queue-management platform
 for customers, car wash operators, and platform administrators in Kazakhstan.
-This repository contains the stable Version 0 foundation and **Version 1.1
-customer registration**. Login, tokens, sessions, vehicles, organizations, and
-later product functionality are not implemented.
+This repository contains the stable Version 0 foundation, **Version 1.1
+customer registration**, and the **Version 1.2.1 backend authentication
+foundation**. Public login, refresh, logout, current-user, vehicles,
+organizations, and later product functionality are not implemented.
 
 ## Repository
 
@@ -47,6 +48,8 @@ GET http://localhost:4000/api/v1/health/ready
 
 Version 1.1 adds the minimal `users` table. Run `pnpm db:migrate` before using
 `POST /api/v1/auth/register` or opening `http://localhost:3000/register`.
+Version 1.2.1 adds server-side token configuration and the
+`refresh_sessions` table without adding a public authentication endpoint.
 
 ## Quality
 

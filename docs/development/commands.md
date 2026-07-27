@@ -27,4 +27,6 @@ Local development uses `prisma migrate dev`. The first change that introduces a
 schema migration adds `prisma migrate deploy` to CI before its persistence
 integration tests. To deploy migrations to the disposable local test database,
 run `NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy`; Prisma then
-uses `TEST_DATABASE_URL`.
+uses `TEST_DATABASE_URL`. To verify a full history, point `TEST_DATABASE_URL` at
+a newly created local database ending in `_test` or `_ci`, run the same deploy
+command, inspect the resulting schema, and delete only that disposable database.

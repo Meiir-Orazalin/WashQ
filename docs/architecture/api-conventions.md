@@ -62,6 +62,9 @@ Invalid input returns `400 VALIDATION_ERROR`. A duplicate normalized email
 returns `409 EMAIL_ALREADY_REGISTERED`. Registration does not return or create
 tokens or sessions, and responses never include a password or password hash.
 
+Version 1.2.1 adds no public endpoint or transport contract. In particular,
+login, refresh, logout, and current-user routes remain absent.
+
 ## Errors
 
 All errors use:
