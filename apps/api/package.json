@@ -25,6 +25,7 @@
     "@prisma/adapter-pg": "7.9.0",
     "@prisma/client": "7.9.0",
     "@washqueue/contracts": "workspace:*",
+    "argon2": "0.44.0",
     "express": "5.2.1",
     "helmet": "8.3.0",
     "pg": "8.22.0",

@@ -24,5 +24,7 @@ hosts. Start the Compose service first. Playwright uses the locally installed
 stable Google Chrome on desktop and emulated mobile viewports.
 
 Local development uses `prisma migrate dev`. The first change that introduces a
-schema migration must add `prisma migrate deploy` to CI before its persistence
-integration tests.
+schema migration adds `prisma migrate deploy` to CI before its persistence
+integration tests. To deploy migrations to the disposable local test database,
+run `NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy`; Prisma then
+uses `TEST_DATABASE_URL`.

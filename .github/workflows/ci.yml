@@ -59,6 +59,9 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm db:generate
 
+      - name: Apply database migrations
+        run: pnpm --filter @washqueue/api db:migrate:deploy
+
       - name: Check formatting
         run: pnpm format:check
 

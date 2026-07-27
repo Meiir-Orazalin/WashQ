@@ -33,3 +33,22 @@ migrate, contract plan with rollback and data-verification steps.
 
 Version 0 defines no business tables and therefore may produce no migration.
 Connectivity is verified with `SELECT 1`.
+
+## Version 1.1 user model
+
+The `users` table contains only:
+
+| SQL column      | Rule                                      |
+| --------------- | ----------------------------------------- |
+| `id`            | PostgreSQL-generated UUID primary key     |
+| `first_name`    | required `varchar(60)`                    |
+| `last_name`     | nullable `varchar(60)`                    |
+| `email`         | required unique `varchar(254)`, lowercase |
+| `password_hash` | required `varchar(255)`, Argon2id hash    |
+| `created_at`    | UTC-aware creation timestamp              |
+| `updated_at`    | UTC-aware update timestamp                |
+
+Migration `20260727094726_add_users_for_customer_registration` creates the
+table and its unique email index. Application normalization and the database
+constraint together make concurrent duplicate registrations resolve to one
+created user and one controlled conflict.

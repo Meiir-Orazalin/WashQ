@@ -23,13 +23,18 @@ or authorization exists.
 - Request IDs support incident correlation.
 - Prisma credentials remain server-side and readiness reveals no infrastructure
   detail.
+- Registration passwords are never logged or returned. They are passed
+  unchanged to an Argon2id adapter through the application-level
+  `PasswordHasher` interface, and only the resulting hash reaches persistence.
+- Failure logging records method, path, request ID, status, and exception type;
+  it does not record request bodies.
 
 ## Explicit future boundaries
 
-Authentication and authorization arrive with Version 1 and must default to
-denial for protected use cases. Rate limiting, audit logging, secure cookies,
-password hashing policy, monitoring, and production hardening arrive in later
-versions when their flows exist.
+Login, authentication, and authorization arrive in later Version 1 slices and
+must default to denial for protected use cases. Rate limiting, audit logging,
+secure cookies, monitoring, and production hardening arrive in later versions
+when their flows exist.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

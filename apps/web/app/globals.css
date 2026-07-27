@@ -32,7 +32,8 @@ body {
 }
 
 button,
-a {
+a,
+input {
   font: inherit;
 }
 
@@ -185,6 +186,141 @@ footer {
   text-decoration: none;
 }
 
+.registration-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 40px 16px;
+}
+
+.registration-card {
+  width: min(100%, 560px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgb(23 33 29 / 8%);
+}
+
+.registration-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.registration-header .brand-mark {
+  flex-basis: 48px;
+  width: 48px;
+  height: 48px;
+}
+
+.registration-form {
+  display: grid;
+  gap: 18px;
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+}
+
+.form-field label {
+  font-weight: 700;
+}
+
+.form-field label span,
+.field-hint {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.form-field input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 11px 12px;
+  color: var(--text);
+  background: white;
+}
+
+.form-field input:focus-visible,
+.password-visibility:focus-visible,
+.submit-button:focus-visible,
+.home-link:focus-visible,
+.registration-success a:focus-visible {
+  outline: 3px solid rgb(20 125 100 / 24%);
+  outline-offset: 2px;
+}
+
+.form-field input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.password-field {
+  display: flex;
+  gap: 8px;
+}
+
+.password-visibility {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0 14px;
+  color: var(--brand);
+  background: white;
+  cursor: pointer;
+}
+
+.field-hint,
+.field-error,
+.form-error {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.field-error,
+.form-error {
+  color: var(--error);
+  font-size: 14px;
+}
+
+.form-error {
+  border: 1px solid rgb(188 61 61 / 28%);
+  border-radius: 7px;
+  padding: 11px 12px;
+  background: rgb(188 61 61 / 7%);
+}
+
+.submit-button {
+  border: 1px solid var(--brand);
+  border-radius: 7px;
+  padding: 12px 18px;
+  color: white;
+  background: var(--brand);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.submit-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.home-link,
+.registration-success a {
+  width: fit-content;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.registration-success p:not(.eyebrow) {
+  margin: 12px 0 22px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 @media (max-width: 520px) {
   .page-shell {
     width: min(100% - 24px, 760px);
@@ -210,5 +346,18 @@ footer {
   .status-row {
     padding-right: 16px;
     padding-left: 16px;
+  }
+
+  .registration-page {
+    align-items: start;
+    padding: 16px 12px;
+  }
+
+  .registration-card {
+    padding: 24px 18px;
+  }
+
+  .registration-header {
+    gap: 12px;
   }
 }

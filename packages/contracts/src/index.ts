@@ -6,3 +6,11 @@ export {
   type ReadinessResponse,
 } from './health.js';
 export { apiErrorResponseSchema, type ApiErrorResponse } from './api-error.js';
+export {
+  registrationRequestSchema,
+  registrationResponseSchema,
+  registrationUserSchema,
+  type RegistrationRequest,
+  type RegistrationResponse,
+  type RegistrationUser,
+} from './registration.js';
