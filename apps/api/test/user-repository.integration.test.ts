@@ -4,8 +4,10 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { PasswordHasher } from '../src/auth/application/password-hasher.js';
+import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
 import { AuthController } from '../src/auth/presentation/auth.controller.js';
+import { RefreshTokenCookiePolicy } from '../src/auth/presentation/refresh-token-cookie.policy.js';
 import { PrismaService } from '../src/database/prisma.service.js';
 import { HttpExceptionFilter } from '../src/http/http-exception.filter.js';
 import { requestIdMiddleware } from '../src/http/request-id.middleware.js';
@@ -77,6 +79,26 @@ describe('PrismaUserRepository integration', () => {
     expect(user.lastName).toBeNull();
   });
 
+  it('returns the minimum authentication record for a normalized email lookup', async () => {
+    await repository.create({
+      firstName: 'Meiir',
+      lastName: 'Orazalin',
+      email: 'meiir@example.com',
+      passwordHash: '$argon2id$stored-hash',
+    });
+
+    await expect(repository.findAuthenticationByEmail('meiir@example.com')).resolves.toMatchObject({
+      firstName: 'Meiir',
+      lastName: 'Orazalin',
+      email: 'meiir@example.com',
+      passwordHash: '$argon2id$stored-hash',
+    });
+  });
+
+  it('returns null for an unknown authentication email', async () => {
+    await expect(repository.findAuthenticationByEmail('unknown@example.com')).resolves.toBeNull();
+  });
+
   it('maps the unique email constraint to a controlled error', async () => {
     const user = {
       firstName: 'Meiir',
@@ -93,11 +115,26 @@ describe('PrismaUserRepository integration', () => {
   it('allows exactly one concurrent registration for one normalized email', async () => {
     const passwordHasher: PasswordHasher = {
       hash: async () => '$argon2id$stored-hash',
+      verify: async () => false,
+      verifyDummy: async () => undefined,
     };
     const registerCustomer = new RegisterCustomerUseCase(passwordHasher, repository);
     const module = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: RegisterCustomerUseCase, useValue: registerCustomer }],
+      providers: [
+        { provide: RegisterCustomerUseCase, useValue: registerCustomer },
+        {
+          provide: LoginCustomerUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: RefreshTokenCookiePolicy,
+          useValue: new RefreshTokenCookiePolicy({
+            nodeEnv: 'test',
+            refreshTokenLifetimeSeconds: 2_592_000,
+          }),
+        },
+      ],
     }).compile();
     const app: INestApplication = module.createNestApplication();
     app.setGlobalPrefix('api/v1');

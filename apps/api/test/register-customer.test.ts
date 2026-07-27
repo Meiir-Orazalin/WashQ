@@ -29,13 +29,19 @@ describe('RegisterCustomerUseCase', () => {
   let userRepository: UserRepository;
   let registerCustomer: RegisterCustomerUseCase;
   const hash = vi.fn<PasswordHasher['hash']>();
+  const verify = vi.fn<PasswordHasher['verify']>();
+  const verifyDummy = vi.fn<PasswordHasher['verifyDummy']>();
   const create = vi.fn<UserRepository['create']>();
+  const findAuthenticationByEmail = vi.fn<UserRepository['findAuthenticationByEmail']>();
 
   beforeEach(() => {
     hash.mockReset().mockResolvedValue('stored-password-hash');
+    verify.mockReset();
+    verifyDummy.mockReset();
     create.mockReset().mockResolvedValue(registeredUser);
-    passwordHasher = { hash };
-    userRepository = { create };
+    findAuthenticationByEmail.mockReset();
+    passwordHasher = { hash, verify, verifyDummy };
+    userRepository = { create, findAuthenticationByEmail };
     registerCustomer = new RegisterCustomerUseCase(passwordHasher, userRepository);
   });
 

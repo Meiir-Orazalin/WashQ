@@ -4,8 +4,10 @@ import { registrationResponseSchema, type RegistrationRequest } from '@washqueue
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PasswordHasher } from '../src/auth/application/password-hasher.js';
+import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
 import { AuthController } from '../src/auth/presentation/auth.controller.js';
+import { RefreshTokenCookiePolicy } from '../src/auth/presentation/refresh-token-cookie.policy.js';
 import { HttpExceptionFilter } from '../src/http/http-exception.filter.js';
 import { requestIdMiddleware } from '../src/http/request-id.middleware.js';
 import { ZodValidationPipe } from '../src/http/zod-validation.pipe.js';
@@ -32,6 +34,8 @@ describe('POST /api/v1/auth/register', () => {
   beforeEach(async () => {
     const passwordHasher: PasswordHasher = {
       hash: async () => 'stored-password-hash',
+      verify: async () => false,
+      verifyDummy: async () => undefined,
     };
     const userRepository: UserRepository = {
       create: async (user: CreateUser) => {
@@ -54,6 +58,7 @@ describe('POST /api/v1/auth/register', () => {
         users.set(user.email, registeredUser);
         return registeredUser;
       },
+      findAuthenticationByEmail: async () => null,
     };
     const module = await Test.createTestingModule({
       controllers: [AuthController],
@@ -61,6 +66,17 @@ describe('POST /api/v1/auth/register', () => {
         {
           provide: RegisterCustomerUseCase,
           useValue: new RegisterCustomerUseCase(passwordHasher, userRepository),
+        },
+        {
+          provide: LoginCustomerUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: RefreshTokenCookiePolicy,
+          useValue: new RefreshTokenCookiePolicy({
+            nodeEnv: 'test',
+            refreshTokenLifetimeSeconds: 2_592_000,
+          }),
         },
       ],
     }).compile();

@@ -14,3 +14,11 @@ export {
   type RegistrationResponse,
   type RegistrationUser,
 } from './registration.js';
+export {
+  loginRequestSchema,
+  loginResponseSchema,
+  loginUserSchema,
+  type LoginRequest,
+  type LoginResponse,
+  type LoginUser,
+} from './login.js';

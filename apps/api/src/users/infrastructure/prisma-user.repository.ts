@@ -5,6 +5,7 @@ import {
   DuplicateUserEmailError,
   type CreateUser,
   type RegisteredUser,
+  type UserAuthenticationRecord,
   type UserRepository,
 } from '../application/user-repository.js';
 
@@ -36,5 +37,18 @@ export class PrismaUserRepository implements UserRepository {
 
       throw error;
     }
+  }
+
+  findAuthenticationByEmail(email: string): Promise<UserAuthenticationRecord | null> {
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        passwordHash: true,
+      },
+    });
   }
 }

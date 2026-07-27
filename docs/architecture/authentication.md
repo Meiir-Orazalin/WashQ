@@ -1,15 +1,16 @@
 # Authentication architecture
 
 Version 1.2.1 establishes authentication configuration and token/session
-infrastructure. It does not expose login, refresh, logout, current-user, or
-protected business endpoints.
+infrastructure. Version 1.2.2 adds backend customer login and initial refresh
+session issuance. Refresh rotation, logout, current-user, guards, and protected
+business endpoints remain absent.
 
 ## Boundaries
 
 Authentication follows the modular-monolith dependency direction:
 
 ```text
-future authentication use case
+authentication use case
   -> application ports
      -> access-token service
      -> refresh-token generator
@@ -39,6 +40,29 @@ Email, names, roles, memberships, vehicles, and other mutable data are
 deliberately excluded. Issuance and verification are available only through the
 `AccessTokenService` port. The signing secret remains server-side.
 
+## Customer login
+
+`POST /api/v1/auth/login` follows this order:
+
+```text
+shared request validation
+  -> normalized email lookup
+  -> password or dummy-password verification
+  -> access-token issuance
+  -> opaque refresh-token generation and hashing
+  -> refresh-session persistence
+  -> public response mapping and HttpOnly cookie
+```
+
+Unknown email, incorrect password, and password-verification failures produce
+the same `INVALID_CREDENTIALS` application result. Unknown emails perform
+Argon2id verification against a valid non-secret dummy hash without artificial
+sleeps.
+
+The controller does not write the refresh cookie until the use case has
+persisted the refresh session and the public JSON response has passed its shared
+contract.
+
 ## Refresh tokens and sessions
 
 Refresh tokens are opaque values generated from 32 cryptographically secure
@@ -51,6 +75,11 @@ Each refresh session belongs to one user and has an explicit expiration and
 optional revocation timestamp. A user may own multiple sessions. Deleting the
 user cascades to their sessions. Rotation and replacement linkage are deferred
 until the refresh use case is implemented.
+
+The raw token crosses only the application-to-presentation boundary after
+successful session persistence. It is written to the `washqueue_refresh`
+HttpOnly cookie and is never included in JSON. See the
+[session cookie policy](session-cookie-policy.md).
 
 ## Configuration
 

@@ -15,8 +15,17 @@ export interface RegisteredUser {
   createdAt: Date;
 }
 
+export interface UserAuthenticationRecord {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+  passwordHash: string;
+}
+
 export interface UserRepository {
   create(user: CreateUser): Promise<RegisteredUser>;
+  findAuthenticationByEmail(email: string): Promise<UserAuthenticationRecord | null>;
 }
 
 export class DuplicateUserEmailError extends Error {
