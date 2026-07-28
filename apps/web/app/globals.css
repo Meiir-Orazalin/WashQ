@@ -50,6 +50,28 @@ input {
   margin-bottom: 44px;
 }
 
+.public-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -20px 0 28px;
+}
+
+.public-actions a,
+.form-links a,
+.authentication-success a {
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.public-actions a {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 9px 13px;
+  background: var(--surface);
+  text-decoration: none;
+}
+
 .brand-mark {
   display: grid;
   flex: 0 0 56px;
@@ -248,8 +270,10 @@ footer {
 .form-field input:focus-visible,
 .password-visibility:focus-visible,
 .submit-button:focus-visible,
-.home-link:focus-visible,
-.registration-success a:focus-visible {
+.public-actions a:focus-visible,
+.form-links a:focus-visible,
+.registration-success a:focus-visible,
+.authentication-success a:focus-visible {
   outline: 3px solid rgb(20 125 100 / 24%);
   outline-offset: 2px;
 }
@@ -308,17 +332,39 @@ footer {
   opacity: 0.65;
 }
 
-.home-link,
-.registration-success a {
-  width: fit-content;
-  color: var(--brand);
-  font-weight: 700;
+.form-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px 18px;
 }
 
-.registration-success p:not(.eyebrow) {
+.form-links a,
+.registration-success a,
+.authentication-success a {
+  width: fit-content;
+}
+
+.registration-success p:not(.eyebrow),
+.authentication-success p:not(.eyebrow) {
   margin: 12px 0 22px;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.authentication-success .authenticated-email {
+  margin-top: -14px;
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @media (max-width: 520px) {

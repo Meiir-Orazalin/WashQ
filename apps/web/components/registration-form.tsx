@@ -51,8 +51,11 @@ export function RegistrationForm() {
       <section className="registration-success" role="status" aria-live="polite">
         <p className="eyebrow">Account created</p>
         <h1>Welcome to WashQueue KZ</h1>
-        <p>Your account has been created successfully. Login will be added in the next version.</p>
-        <Link href="/">Return to the public home page</Link>
+        <p>Your account has been created successfully. You can now sign in.</p>
+        <nav className="form-links" aria-label="Registration success options">
+          <Link href="/login">Sign in</Link>
+          <Link href="/">Return to the public home page</Link>
+        </nav>
       </section>
     );
   }
@@ -153,9 +156,10 @@ export function RegistrationForm() {
         {registration.isPending ? 'Creating account…' : 'Create account'}
       </button>
 
-      <Link className="home-link" href="/">
-        Back to the public home page
-      </Link>
+      <nav className="form-links" aria-label="Registration options">
+        <Link href="/login">Already have an account? Sign in</Link>
+        <Link href="/">Back to the public home page</Link>
+      </nav>
     </form>
   );
 }

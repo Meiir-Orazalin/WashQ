@@ -18,4 +18,9 @@ test('shows frontend and validated API health', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'WashQueue KZ' })).toBeVisible();
   await expect(page.getByText('Frontend ready')).toBeVisible();
   await expect(page.getByText('Available')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
+  await expect(page.getByRole('link', { name: 'Create account' })).toHaveAttribute(
+    'href',
+    '/register',
+  );
 });

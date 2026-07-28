@@ -75,6 +75,22 @@ before they are implemented.
   are absent from request and failure logs.
 - Access tokens remain stateless: logout and family revocation do not blacklist
   them, while deleting the referenced user prevents current-user lookup.
+- The web login request includes credentials only so the browser can accept the
+  HttpOnly refresh cookie; frontend JavaScript never reads or writes that
+  cookie.
+- The frontend stores the access token, expiration, and current public user
+  only in a root React provider. It does not use localStorage, sessionStorage,
+  IndexedDB, cookies, URLs, rendered markup, service-worker storage, or React
+  Query data.
+- The login mutation has no cached variables or result data. The raw password
+  remains in local form state until it is cleared after success or an API
+  failure.
+- Post-login identity is verified through `/auth/me` with an explicitly supplied
+  Bearer token and no cookie credentials. Failure clears all staged
+  authentication data and does not trigger refresh.
+- Reloading the page loses frontend authentication state by design in Version
+  1.2.6. The retained HttpOnly cookie is not used until the separately reviewed
+  Version 1.2.7 restoration flow.
 
 ## Explicit future boundaries
 

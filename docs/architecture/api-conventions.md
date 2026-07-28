@@ -161,8 +161,23 @@ message `Authentication is required`. The response contains no token, claim,
 credential, role, session, or Prisma data. `/auth/me` does not read or mutate a
 refresh cookie or refresh session.
 
-Version 1.2.5 does not add frontend authentication, a global guard, protected
-business routes, or global logout.
+## Frontend API client
+
+The Version 1.2.6 central web API client:
+
+- sends `POST /auth/login` with `credentials: "include"`;
+- parses login success through the shared login-response contract;
+- sends `GET /auth/me` only with an explicitly supplied in-memory Bearer token
+  and `credentials: "omit"`;
+- parses the current user through the shared current-user contract;
+- converts invalid JSON, invalid success responses, network failures, and API
+  errors into sanitized frontend errors;
+- does not keep a global token, attach Authorization to public endpoints,
+  retry a 401, call refresh automatically, or log request credentials.
+
+The login TanStack mutation has no variables or returned data. Passwords and
+tokens therefore do not become mutation-cache data. Version 1.2.6 adds no API
+endpoint, global guard, protected business route, or global logout.
 
 ## Errors
 

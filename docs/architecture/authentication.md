@@ -5,8 +5,9 @@ infrastructure. Version 1.2.2 adds backend customer login and initial refresh
 session issuance. Version 1.2.3 adds one-time refresh-token rotation and
 family-scoped replay detection. Version 1.2.4 adds idempotent logout of the
 current refresh session. Version 1.2.5 adds access-token authentication for the
-current-user endpoint. Global guards, frontend authentication, and protected
-business endpoints remain absent.
+current-user endpoint. Version 1.2.6 adds the initial frontend login flow and
+page-lifetime in-memory authentication state. Automatic restoration, automatic
+refresh, global guards, and protected business endpoints remain absent.
 
 ## Boundaries
 
@@ -174,6 +175,42 @@ authentication failure.
 The Bearer authentication adapter is scoped only to `/auth/me`. Later protected
 endpoints may reuse the narrow reader and application boundary, but Version
 1.2.5 introduces no global guard and protects no unrelated route.
+
+## Frontend login flow
+
+The `/login` route uses these frontend boundaries:
+
+```text
+login form
+  -> shared login-request validation
+  -> TanStack login mutation
+  -> central API client login with credentials included
+  -> memory-only access-token staging
+  -> central API client /auth/me with explicit Bearer token
+  -> current-user contract validation
+  -> authenticated memory state and confirmation UI
+```
+
+The root authentication provider stores only the access token, its expiration
+timestamp, the current public user, and the authentication status. It is created
+fresh on every page load and performs no startup network request. The mutation
+has no variables or result data, so neither the password nor access token enters
+the TanStack Query cache. The password remains local to the form and is cleared
+after an API failure or successful authentication.
+
+The login request uses `credentials: "include"` so the browser accepts the
+backend-managed HttpOnly refresh cookie. `/auth/me` uses
+`credentials: "omit"` and an explicit Authorization header, so that verification
+depends only on the staged access token. The login response user is not treated
+as final; only the contract-validated `/auth/me` user completes authentication.
+If verification fails, the token, expiration, and user are cleared and no
+refresh attempt occurs.
+
+Access tokens are never persisted to Web Storage, IndexedDB, cookies, URLs,
+React Query data, or rendered markup. Reloading the page therefore returns to
+the unauthenticated login form while the inaccessible refresh cookie may remain
+in the browser. Automatic session restoration belongs to Version 1.2.7. See
+[ADR 0010](../decisions/0010-memory-only-browser-access-tokens.md).
 
 ## Configuration
 

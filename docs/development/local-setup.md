@@ -235,3 +235,36 @@ test suite.
 
 Inspect API logs for accidental Authorization, token, password, or signing
 secret output. Delete the temporary fixture and directory when finished.
+
+## Manual frontend login check
+
+Start PostgreSQL, the API, and the web application:
+
+```bash
+docker compose up -d
+pnpm db:generate
+pnpm db:migrate
+pnpm dev
+```
+
+Register a temporary account at `http://localhost:3000/register`, then open
+`http://localhost:3000/login`. Sign in with surrounding whitespace and uppercase
+letters in the email to confirm shared-contract normalization. In browser
+developer tools:
+
+1. Confirm `POST /api/v1/auth/login` returns 200 and the response cookie is
+   `washqueue_refresh` with `HttpOnly`, `SameSite=Lax`, and the auth-scoped path.
+2. Confirm the next request is `GET /api/v1/auth/me` with an Authorization
+   header and that its public user is displayed. Do not copy or print the token.
+3. Confirm localStorage, application-owned sessionStorage, IndexedDB, cookies
+   accessible through JavaScript, page markup, and the URL contain no access
+   token or password.
+4. Reload `/login` and confirm the form returns without a refresh or `/auth/me`
+   request. The HttpOnly cookie may remain; automatic restoration is Version
+   1.2.7.
+5. Submit a wrong password and confirm the page shows only `Email or password is
+incorrect.`
+
+Inspect the browser console, API output, and web output for token or password
+leakage. Delete the temporary user so its refresh session is removed by the
+existing database cascade.

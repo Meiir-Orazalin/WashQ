@@ -1,4 +1,5 @@
 import { ApiHealthStatus } from '@/components/api-health-status';
+import Link from 'next/link';
 
 export default function HomePage() {
   return (
@@ -13,6 +14,11 @@ export default function HomePage() {
           <p className="subtitle">Car wash marketplace and queue platform</p>
         </div>
       </header>
+
+      <nav className="public-actions" aria-label="Customer account">
+        <Link href="/login">Sign in</Link>
+        <Link href="/register">Create account</Link>
+      </nav>
 
       <section className="status-section" aria-labelledby="system-status-heading">
         <div className="section-heading">
