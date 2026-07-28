@@ -53,6 +53,8 @@ describe('LoginCustomerUseCase', () => {
   const createSession = vi.fn<RefreshSessionRepository['create']>();
   const findSession = vi.fn<RefreshSessionRepository['findByTokenHash']>();
   const revokeSession = vi.fn<RefreshSessionRepository['revoke']>();
+  const revokeActiveSessionByTokenHash =
+    vi.fn<RefreshSessionRepository['revokeActiveByTokenHash']>();
   const revokeFamily = vi.fn<RefreshSessionRepository['revokeFamily']>();
   const rotateSession = vi.fn<RefreshSessionRepository['rotate']>();
 
@@ -83,6 +85,7 @@ describe('LoginCustomerUseCase', () => {
     });
     findSession.mockReset();
     revokeSession.mockReset();
+    revokeActiveSessionByTokenHash.mockReset();
     revokeFamily.mockReset();
     rotateSession.mockReset();
 
@@ -96,6 +99,7 @@ describe('LoginCustomerUseCase', () => {
         create: createSession,
         findByTokenHash: findSession,
         revoke: revokeSession,
+        revokeActiveByTokenHash: revokeActiveSessionByTokenHash,
         revokeFamily,
         rotate: rotateSession,
       },

@@ -15,11 +15,13 @@ Status: in progress.
         foundation.
   - [x] Version 1.2.2 — Backend customer login and initial session issuance.
   - [x] Version 1.2.3 — Refresh-token rotation and replay detection.
-  - [ ] Later Version 1.2 slices — logout.
+  - [x] Version 1.2.4 — Backend logout of the current refresh session.
+  - [ ] Later Version 1.2 slices — current-user endpoint and frontend
+        authentication flows.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
-Completing Version 1.2.3 does not complete Version 1.2 or Version 1.
+Completing Version 1.2.4 does not complete Version 1.2 or Version 1.
 
 ## Version 2 — Business onboarding
 

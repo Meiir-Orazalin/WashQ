@@ -3,8 +3,9 @@
 Version 1.2.1 establishes authentication configuration and token/session
 infrastructure. Version 1.2.2 adds backend customer login and initial refresh
 session issuance. Version 1.2.3 adds one-time refresh-token rotation and
-family-scoped replay detection. Logout, current-user, guards, and protected
-business endpoints remain absent.
+family-scoped replay detection. Version 1.2.4 adds idempotent logout of the
+current refresh session. Current-user, guards, frontend authentication, and
+protected business endpoints remain absent.
 
 ## Boundaries
 
@@ -111,6 +112,38 @@ Missing, malformed, unknown, expired, revoked, deleted-user, and replayed
 sessions produce the same `INVALID_REFRESH_SESSION` response and clear the
 refresh cookie. Unexpected infrastructure failures use the sanitized global
 500 response and do not write a cookie.
+
+## Current-session logout flow
+
+`POST /api/v1/auth/logout` follows this order:
+
+```text
+browser-Origin validation and safe cookie parsing
+  -> opaque-token shape validation
+  -> presented-token hashing
+  -> atomic conditional revocation by unique token hash
+  -> auth-scoped cookie clearing
+  -> empty 204 response
+```
+
+The application use case has no HTTP, cookie, NestJS, Express, or Prisma
+dependency. It treats a missing or malformed token as a completed logout. For a
+shape-valid token, the repository receives only its branded hash and atomically
+sets `revokedAt` only when that unique session is active and unexpired. An
+unknown, expired, already-revoked, deleted-user, or rotated-predecessor token
+therefore produces the same empty `204 No Content` response without a
+read-then-update query.
+
+Logout never invokes family replay revocation, creates no replacement, and does
+not affect another session or login family. Replay detection remains exclusive
+to refresh. A browser Origin rejected before the use case receives
+`403 ORIGIN_NOT_ALLOWED` and neither persistence nor cookie state is changed.
+An accepted request clears the cookie with the centralized policy, including
+when an unexpected hashing or database failure is returned through the
+sanitized global 500 boundary.
+
+Logout revokes no access token and adds no blacklist. Any access token issued
+before logout remains valid until its short expiration.
 
 ## Configuration
 

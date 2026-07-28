@@ -54,13 +54,23 @@ before they are implemented.
   trusted non-browser clients and internal tests.
 - Invalid refresh-session conditions are externally indistinguishable, clear
   the auth-scoped cookie, and never return refresh or session data.
+- Current-session logout validates the same browser Origin policy as refresh,
+  hashes only shape-valid presented tokens, and conditionally revokes only the
+  matching active, unexpired session. Missing, malformed, unknown, expired,
+  revoked, deleted-user, and rotated-predecessor tokens all return an empty 204.
+- Logout never invokes family replay revocation or affects other sessions.
+  Accepted requests clear the centralized auth-scoped cookie; disallowed
+  Origins neither revoke nor clear. Unexpected infrastructure failures remain
+  sanitized 500 responses.
+- Logout does not revoke access tokens. Previously issued access tokens remain
+  valid until their configured short expiration.
 
 ## Explicit future boundaries
 
-Logout, authentication guards, and authorization arrive in later Version 1
-slices and must default to denial for protected use cases. Rate limiting, audit
-logging, expanded CSRF controls, monitoring, and production hardening arrive in
-later versions when their flows exist.
+Current-user lookup, authentication guards, and authorization arrive in later
+Version 1 slices and must default to denial for protected use cases. Global
+logout, rate limiting, audit logging, expanded CSRF controls, monitoring, and
+production hardening arrive in later versions when their flows exist.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

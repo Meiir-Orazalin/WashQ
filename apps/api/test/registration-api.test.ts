@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PasswordHasher } from '../src/auth/application/password-hasher.js';
 import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
+import { LogoutCurrentSessionUseCase } from '../src/auth/application/logout-current-session.use-case.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
 import { RotateRefreshSessionUseCase } from '../src/auth/application/rotate-refresh-session.use-case.js';
 import { AuthController } from '../src/auth/presentation/auth.controller.js';
@@ -75,6 +76,10 @@ describe('POST /api/v1/auth/register', () => {
         },
         {
           provide: RotateRefreshSessionUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: LogoutCurrentSessionUseCase,
           useValue: { execute: async () => Promise.reject(new Error('not used')) },
         },
         {
