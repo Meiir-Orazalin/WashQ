@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { PasswordHasher } from '../src/auth/application/password-hasher.js';
+import { GetCurrentUserUseCase } from '../src/auth/application/get-current-user.use-case.js';
 import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
 import { LogoutCurrentSessionUseCase } from '../src/auth/application/logout-current-session.use-case.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
@@ -102,6 +103,56 @@ describe('PrismaUserRepository integration', () => {
     await expect(repository.findAuthenticationByEmail('unknown@example.com')).resolves.toBeNull();
   });
 
+  it('finds a current public user by ID with the correct projection', async () => {
+    const created = await repository.create({
+      firstName: 'Current',
+      lastName: 'Customer',
+      email: 'current@example.com',
+      passwordHash: '$argon2id$must-remain-internal',
+    });
+
+    const user = await repository.findPublicById(created.id);
+
+    expect(user).toEqual({
+      id: created.id,
+      firstName: 'Current',
+      lastName: 'Customer',
+      email: 'current@example.com',
+    });
+    expect(user).not.toHaveProperty('passwordHash');
+  });
+
+  it('returns a nullable last name in the public projection', async () => {
+    const created = await repository.create({
+      firstName: 'Current',
+      lastName: null,
+      email: 'nullable@example.com',
+      passwordHash: '$argon2id$must-remain-internal',
+    });
+
+    await expect(repository.findPublicById(created.id)).resolves.toMatchObject({
+      lastName: null,
+    });
+  });
+
+  it('returns null for an unknown public user ID', async () => {
+    await expect(
+      repository.findPublicById('df4e7850-e329-4679-91f1-77b409d93f4f'),
+    ).resolves.toBeNull();
+  });
+
+  it('returns null after the referenced user is deleted', async () => {
+    const created = await repository.create({
+      firstName: 'Deleted',
+      lastName: null,
+      email: 'deleted@example.com',
+      passwordHash: '$argon2id$must-remain-internal',
+    });
+    await prisma.user.delete({ where: { id: created.id } });
+
+    await expect(repository.findPublicById(created.id)).resolves.toBeNull();
+  });
+
   it('maps the unique email constraint to a controlled error', async () => {
     const user = {
       firstName: 'Meiir',
@@ -128,6 +179,10 @@ describe('PrismaUserRepository integration', () => {
         { provide: RegisterCustomerUseCase, useValue: registerCustomer },
         {
           provide: LoginCustomerUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: GetCurrentUserUseCase,
           useValue: { execute: async () => Promise.reject(new Error('not used')) },
         },
         {

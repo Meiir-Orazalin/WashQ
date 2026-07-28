@@ -191,3 +191,47 @@ The last two statuses are `403` and `200`; the 403 headers contain no
 and review API logs for accidental token, password, or signing-secret output.
 Delete the temporary account, remove the disposable directory, and stop the
 built API when finished.
+
+## Manual current-user check
+
+Register and log in a temporary account, saving the login response without
+printing its access token:
+
+```bash
+washqueue_me_dir="$(mktemp -d)"
+curl -sS -o "$washqueue_me_dir/register.json" \
+  -X POST http://localhost:4000/api/v1/auth/register \
+  -H 'content-type: application/json' \
+  --data '{"firstName":"Current","email":"current-check@example.com","password":"example-password"}'
+curl -sS -o "$washqueue_me_dir/login.json" \
+  -X POST http://localhost:4000/api/v1/auth/login \
+  -H 'content-type: application/json' \
+  --data '{"email":"current-check@example.com","password":"example-password"}'
+washqueue_access_token="$(jq -r '.accessToken' "$washqueue_me_dir/login.json")"
+```
+
+Call the endpoint with the access token, without Authorization, and with a
+modified token:
+
+```bash
+curl -sS -o "$washqueue_me_dir/current.json" -D "$washqueue_me_dir/current.headers" \
+  -w '%{http_code}\n' http://localhost:4000/api/v1/auth/me \
+  -H "Authorization: Bearer $washqueue_access_token"
+curl -sS -o "$washqueue_me_dir/missing.json" -w '%{http_code}\n' \
+  http://localhost:4000/api/v1/auth/me
+curl -sS -o "$washqueue_me_dir/modified.json" -w '%{http_code}\n' \
+  http://localhost:4000/api/v1/auth/me \
+  -H "Authorization: Bearer ${washqueue_access_token}modified"
+```
+
+The status sequence is `200`, `401`, `401`. The 200 response contains only the
+four public user fields, and its headers contain no `Set-Cookie`. The two 401
+responses use the same `AUTHENTICATION_REQUIRED` code and message. Update the
+temporary user's name or email directly in the local database and repeat the
+valid request to confirm the endpoint returns current values rather than token
+claims. Delete the user and repeat once more to confirm the old token receives
+the same 401. Expired-token behavior is covered deterministically by the API
+test suite.
+
+Inspect API logs for accidental Authorization, token, password, or signing
+secret output. Delete the temporary fixture and directory when finished.

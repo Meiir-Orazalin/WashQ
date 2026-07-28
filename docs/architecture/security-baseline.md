@@ -64,13 +64,24 @@ before they are implemented.
   sanitized 500 responses.
 - Logout does not revoke access tokens. Previously issued access tokens remain
   valid until their configured short expiration.
+- The current-user endpoint accepts only a Bearer access token. The focused
+  header reader rejects missing, malformed, unsupported, and multiple
+  credentials without logging their values.
+- Expected access-token verification failures, invalid subjects, and deleted
+  users are externally indistinguishable as `401 AUTHENTICATION_REQUIRED`.
+- Current-user lookup selects only the public user projection from PostgreSQL;
+  it never reads `password_hash` or refresh-session state.
+- Authorization headers, verified claims, access tokens, and signing secrets
+  are absent from request and failure logs.
+- Access tokens remain stateless: logout and family revocation do not blacklist
+  them, while deleting the referenced user prevents current-user lookup.
 
 ## Explicit future boundaries
 
-Current-user lookup, authentication guards, and authorization arrive in later
-Version 1 slices and must default to denial for protected use cases. Global
-logout, rate limiting, audit logging, expanded CSRF controls, monitoring, and
-production hardening arrive in later versions when their flows exist.
+Global authentication guards and authorization arrive in later Version 1
+slices and must default to denial for protected use cases. Global logout, rate
+limiting, audit logging, expanded CSRF controls, monitoring, and production
+hardening arrive in later versions when their flows exist.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

@@ -23,3 +23,4 @@ export {
   type LoginUser,
 } from './login.js';
 export { refreshResponseSchema, type RefreshResponse } from './refresh.js';
+export { currentUserResponseSchema, type CurrentUserResponse } from './current-user.js';

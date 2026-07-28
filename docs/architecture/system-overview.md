@@ -27,7 +27,8 @@ Version 1.2.1 adds server-only authentication configuration, token service
 ports, cryptographic adapters, and refresh-session persistence. Versions 1.2.2
 through 1.2.4 add backend login, cookie-backed refresh rotation,
 family-scoped replay detection, and idempotent current-session logout.
-Current-user, frontend login, vehicles, and organization capabilities do not
+Version 1.2.5 adds the Bearer-authenticated backend current-user endpoint.
+Frontend login, global guards, vehicles, and organization capabilities do not
 exist.
 
 ## Runtime boundaries

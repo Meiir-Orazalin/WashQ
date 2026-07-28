@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import {
   DuplicateUserEmailError,
   type CreateUser,
+  type PublicUser,
   type RegisteredUser,
   type UserAuthenticationRecord,
   type UserRepository,
@@ -48,6 +49,18 @@ export class PrismaUserRepository implements UserRepository {
         lastName: true,
         email: true,
         passwordHash: true,
+      },
+    });
+  }
+
+  findPublicById(id: string): Promise<PublicUser | null> {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
       },
     });
   }

@@ -7,8 +7,9 @@ customer registration**, and the **Version 1.2.1 backend authentication
 foundation**. Version 1.2.2 adds backend customer login and initial
 cookie-backed refresh-session issuance. Version 1.2.3 adds one-time
 refresh-token rotation and family-scoped replay detection. Version 1.2.4 adds
-backend logout of the current refresh session. Current-user, frontend login,
-vehicles, organizations, and later product functionality are not implemented.
+backend logout of the current refresh session. Version 1.2.5 adds the
+Bearer-authenticated backend current-user endpoint. Frontend login, vehicles,
+organizations, and later product functionality are not implemented.
 
 ## Repository
 
@@ -61,6 +62,9 @@ session family when an already-replaced token is replayed.
 Version 1.2.4 adds `POST /api/v1/auth/logout`; it idempotently revokes only the
 presented active refresh session, clears the auth cookie, and leaves existing
 access tokens valid until expiration.
+Version 1.2.5 adds `GET /api/v1/auth/me`; it validates the short-lived Bearer
+access token and returns current public user values without consulting refresh
+sessions.
 
 ## Quality
 

@@ -6,6 +6,7 @@ import {
   ACCESS_TOKEN_SERVICE,
   type AccessTokenService,
 } from './application/access-token.service.js';
+import { GetCurrentUserUseCase } from './application/get-current-user.use-case.js';
 import { LoginCustomerUseCase } from './application/login-customer.use-case.js';
 import { LogoutCurrentSessionUseCase } from './application/logout-current-session.use-case.js';
 import { RegisterCustomerUseCase } from './application/register-customer.use-case.js';
@@ -71,6 +72,12 @@ import { USER_REPOSITORY, type UserRepository } from '../users/application/user-
       inject: [PASSWORD_HASHER, USER_REPOSITORY],
       useFactory: (passwordHasher: PasswordHasher, userRepository: UserRepository) =>
         new RegisterCustomerUseCase(passwordHasher, userRepository),
+    },
+    {
+      provide: GetCurrentUserUseCase,
+      inject: [ACCESS_TOKEN_SERVICE, USER_REPOSITORY],
+      useFactory: (accessTokenService: AccessTokenService, userRepository: UserRepository) =>
+        new GetCurrentUserUseCase(accessTokenService, userRepository),
     },
     {
       provide: LoginCustomerUseCase,

@@ -50,6 +50,15 @@ async function bootstrap(): Promise<void> {
         .setTitle('WashQueue KZ API')
         .setDescription('REST API foundation for WashQueue KZ')
         .setVersion('0.0.0')
+        .addBearerAuth(
+          {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT',
+            description: 'Short-lived access token supplied in the Authorization header.',
+          },
+          'access-token',
+        )
         .addCookieAuth(
           'washqueue_refresh',
           {

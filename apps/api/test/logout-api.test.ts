@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
+import { GetCurrentUserUseCase } from '../src/auth/application/get-current-user.use-case.js';
 import {
   LogoutCurrentSessionUseCase,
   type LogoutCurrentSessionCommand,
@@ -72,6 +73,10 @@ describe('POST /api/v1/auth/logout', () => {
       providers: [
         { provide: RegisterCustomerUseCase, useValue: { execute: () => Promise.reject() } },
         { provide: LoginCustomerUseCase, useValue: { execute: () => Promise.reject() } },
+        {
+          provide: GetCurrentUserUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
         {
           provide: RotateRefreshSessionUseCase,
           useValue: { execute: () => Promise.reject() },

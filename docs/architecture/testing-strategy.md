@@ -48,6 +48,14 @@ OpenAPI. Real-PostgreSQL tests prove atomic one-session revocation, isolation
 from other sessions and families, rotated-predecessor behavior, deletion
 cascade, hashed-only persistence, and two simultaneous logout attempts.
 
+Version 1.2.5 adds strict current-user response contracts, focused Bearer
+reader tests, access-token application tests, endpoint-scoped OpenAPI coverage,
+and real-PostgreSQL public-user projection tests. HTTP security tests prove
+generic authentication failures, current database values, no cookie mutation,
+no refresh-session dependency, sanitized infrastructure failures, and
+Authorization/token/signing-secret log privacy. Existing public endpoint suites
+remain regression coverage against accidental global protection.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

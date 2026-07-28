@@ -42,6 +42,7 @@ const refreshTokenHash = `sha256:${'h'.repeat(43)}` as RefreshTokenHash;
 describe('LoginCustomerUseCase', () => {
   const createUser = vi.fn<UserRepository['create']>();
   const findAuthenticationByEmail = vi.fn<UserRepository['findAuthenticationByEmail']>();
+  const findPublicById = vi.fn<UserRepository['findPublicById']>();
   const hashPassword = vi.fn<PasswordHasher['hash']>();
   const verifyPassword = vi.fn<PasswordHasher['verify']>();
   const verifyDummy = vi.fn<PasswordHasher['verifyDummy']>();
@@ -65,6 +66,7 @@ describe('LoginCustomerUseCase', () => {
     rawRefreshToken = randomBytes(32).toString('base64url');
     createUser.mockReset();
     findAuthenticationByEmail.mockReset().mockResolvedValue(authenticationRecord);
+    findPublicById.mockReset();
     hashPassword.mockReset();
     verifyPassword.mockReset().mockResolvedValue(true);
     verifyDummy.mockReset().mockResolvedValue();
@@ -90,7 +92,7 @@ describe('LoginCustomerUseCase', () => {
     rotateSession.mockReset();
 
     useCase = new LoginCustomerUseCase(
-      { create: createUser, findAuthenticationByEmail },
+      { create: createUser, findAuthenticationByEmail, findPublicById },
       { hash: hashPassword, verify: verifyPassword, verifyDummy },
       { issue: issueAccessToken, verify: verifyAccessToken },
       { generate: generateRefreshToken },
