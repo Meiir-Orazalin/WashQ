@@ -25,8 +25,6 @@ test('registers a customer account', async ({ page }) => {
   await page.getByRole('button', { name: 'Create account' }).click();
 
   await expect(
-    page.getByText(
-      'Your account has been created successfully. Login will be added in the next version.',
-    ),
+    page.getByText('Your account has been created successfully. You can now sign in.'),
   ).toBeVisible();
 });

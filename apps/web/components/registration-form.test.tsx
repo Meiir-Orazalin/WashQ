@@ -51,6 +51,10 @@ describe('RegistrationForm', () => {
     expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'email');
     expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password');
     expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled();
+    expect(screen.getByRole('link', { name: 'Already have an account? Sign in' })).toHaveAttribute(
+      'href',
+      '/login',
+    );
     expect(screen.getByRole('link', { name: 'Back to the public home page' })).toHaveAttribute(
       'href',
       '/',
@@ -100,10 +104,9 @@ describe('RegistrationForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(
-      await screen.findByText(
-        'Your account has been created successfully. Login will be added in the next version.',
-      ),
+      await screen.findByText('Your account has been created successfully. You can now sign in.'),
     ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login');
   });
 
   it('shows a clear duplicate-email state', async () => {

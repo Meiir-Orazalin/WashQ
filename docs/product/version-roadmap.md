@@ -17,11 +17,12 @@ Status: in progress.
   - [x] Version 1.2.3 — Refresh-token rotation and replay detection.
   - [x] Version 1.2.4 — Backend logout of the current refresh session.
   - [x] Version 1.2.5 — Access-token authentication and current-user endpoint.
-  - [ ] Later Version 1.2 slices — frontend authentication flows.
+  - [x] Version 1.2.6 — Frontend login and in-memory authentication state.
+  - [ ] Version 1.2.7 — Frontend session restoration and automatic refresh.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
-Completing Version 1.2.5 does not complete Version 1.2 or Version 1.
+Completing Version 1.2.6 does not complete Version 1.2 or Version 1.
 
 ## Version 2 — Business onboarding
 

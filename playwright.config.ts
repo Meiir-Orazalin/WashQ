@@ -12,6 +12,9 @@ export default defineConfig({
   },
   webServer: {
     command: 'pnpm --filter @washqueue/contracts build && pnpm --filter @washqueue/web dev',
+    env: {
+      NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:3000/api/v1',
+    },
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -56,6 +56,15 @@ no refresh-session dependency, sanitized infrastructure failures, and
 Authorization/token/signing-secret log privacy. Existing public endpoint suites
 remain regression coverage against accidental global protection.
 
+Version 1.2.6 adds login-form validation, accessibility, loading, success, and
+failure tests; central-client credential and Authorization assertions;
+authentication-state transition tests; and storage, cookie, DOM, password, and
+TanStack cache privacy checks. A deterministic desktop/mobile Playwright flow
+intercepts login and current-user responses, verifies the HttpOnly cookie,
+confirms memory-only storage, and proves reload returns to the login form
+without an automatic restoration request. Existing home and registration
+browser flows remain regression coverage.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

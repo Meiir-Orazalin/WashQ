@@ -1,8 +1,7 @@
 # Refresh-session cookie policy
 
-Versions 1.2.2 through 1.2.4 transport the opaque refresh token only through a
-response cookie. The cookie policy is centralized in the API presentation
-layer.
+Versions 1.2.2 onward transport the opaque refresh token only through a response
+cookie. The cookie policy is centralized in the API presentation layer.
 
 | Attribute  | Value                                   |
 | ---------- | --------------------------------------- |
@@ -40,3 +39,10 @@ non-browser clients and internal tests; callers in that category remain
 responsible for protecting their credential context. `SameSite=Lax`, explicit
 credentialed CORS, and the Origin check are the current CSRF controls. A
 separate CSRF token is not added in Version 1.2.4.
+
+The Version 1.2.6 web login request uses `credentials: "include"` so the browser
+can accept this cookie. Frontend JavaScript neither reads nor writes it.
+Post-login `/auth/me` verification explicitly omits credentials and authenticates
+with the in-memory Bearer access token. A page reload discards that access token
+but may retain the HttpOnly refresh cookie; Version 1.2.6 does not use it to
+restore a session. Restoration is deferred to Version 1.2.7.
