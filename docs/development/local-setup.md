@@ -107,3 +107,87 @@ The first refresh returns 200 and rotates the cookie. Reusing
 family. A request with `Origin: https://attacker.example` returns
 `403 ORIGIN_NOT_ALLOWED`. Remove the temporary cookie directory and database
 fixture when finished.
+
+## Manual current-session logout check
+
+Start PostgreSQL, generate Prisma Client, deploy the existing migration history,
+and start the built API. Use disposable cookie jars and response files so raw
+refresh and access tokens are not printed:
+
+```bash
+docker compose up -d
+pnpm db:generate
+pnpm --filter @washqueue/api db:migrate:deploy
+pnpm build
+pnpm --filter @washqueue/api start
+
+washqueue_logout_dir="$(mktemp -d)"
+curl -sS -o "$washqueue_logout_dir/register.json" \
+  -X POST http://localhost:4000/api/v1/auth/register \
+  -H 'content-type: application/json' \
+  --data '{"firstName":"Logout","email":"logout-check@example.com","password":"example-password"}'
+curl -sS -o "$washqueue_logout_dir/first-login.json" \
+  -X POST http://localhost:4000/api/v1/auth/login \
+  -H 'content-type: application/json' \
+  --data '{"email":"logout-check@example.com","password":"example-password"}' \
+  -c "$washqueue_logout_dir/first.cookies"
+cp "$washqueue_logout_dir/first.cookies" "$washqueue_logout_dir/first-original.cookies"
+curl -sS -o "$washqueue_logout_dir/second-login.json" \
+  -X POST http://localhost:4000/api/v1/auth/login \
+  -H 'content-type: application/json' \
+  --data '{"email":"logout-check@example.com","password":"example-password"}' \
+  -c "$washqueue_logout_dir/second.cookies"
+
+curl -sS -o /dev/null -D "$washqueue_logout_dir/logout.headers" \
+  -w '%{http_code}\n' -X POST http://localhost:4000/api/v1/auth/logout \
+  -H 'Origin: http://localhost:3000' \
+  -b "$washqueue_logout_dir/first.cookies" \
+  -c "$washqueue_logout_dir/first.cookies"
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST http://localhost:4000/api/v1/auth/refresh \
+  -H 'Origin: http://localhost:3000' \
+  -b "$washqueue_logout_dir/first-original.cookies"
+curl -sS -o "$washqueue_logout_dir/second-refresh.json" -w '%{http_code}\n' \
+  -X POST http://localhost:4000/api/v1/auth/refresh \
+  -H 'Origin: http://localhost:3000' \
+  -b "$washqueue_logout_dir/second.cookies" \
+  -c "$washqueue_logout_dir/second.cookies"
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST http://localhost:4000/api/v1/auth/logout \
+  -H 'Origin: http://localhost:3000' \
+  -b "$washqueue_logout_dir/first-original.cookies"
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST http://localhost:4000/api/v1/auth/logout \
+  -H 'Origin: http://localhost:3000'
+```
+
+The status sequence is `204`, `401`, `200`, `204`, `204`. The logout headers
+contain an empty, expired `washqueue_refresh` cookie with `HttpOnly`,
+`SameSite=Lax`, and `Path=/api/v1/auth`.
+
+Create a third login cookie, call logout with an unapproved Origin, and then
+refresh it with the approved Origin:
+
+```bash
+curl -sS -o "$washqueue_logout_dir/third-login.json" \
+  -X POST http://localhost:4000/api/v1/auth/login \
+  -H 'content-type: application/json' \
+  --data '{"email":"logout-check@example.com","password":"example-password"}' \
+  -c "$washqueue_logout_dir/third.cookies"
+curl -sS -o "$washqueue_logout_dir/disallowed.json" \
+  -D "$washqueue_logout_dir/disallowed.headers" -w '%{http_code}\n' \
+  -X POST http://localhost:4000/api/v1/auth/logout \
+  -H 'Origin: https://attacker.example' \
+  -b "$washqueue_logout_dir/third.cookies"
+curl -sS -o "$washqueue_logout_dir/third-refresh.json" -w '%{http_code}\n' \
+  -X POST http://localhost:4000/api/v1/auth/refresh \
+  -H 'Origin: http://localhost:3000' \
+  -b "$washqueue_logout_dir/third.cookies"
+```
+
+The last two statuses are `403` and `200`; the 403 headers contain no
+`Set-Cookie`. Inspect `users` and `refresh_sessions` without selecting
+`password_hash` or `token_hash`, confirm only the first session was revoked,
+and review API logs for accidental token, password, or signing-secret output.
+Delete the temporary account, remove the disposable directory, and stop the
+built API when finished.

@@ -18,6 +18,7 @@ GET /api/v1/health/ready
 POST /api/v1/auth/register
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
 ```
 
 Liveness returns:
@@ -116,7 +117,24 @@ the configured frontend origins. An unapproved Origin returns
 non-browser clients and internal tests. Credentialed CORS never echoes an
 arbitrary origin.
 
-Version 1.2.3 does not add logout or current-user routes.
+Logout has no JSON request body. It reads the current session token from the
+same `washqueue_refresh` HttpOnly cookie and returns an empty
+`204 No Content`. Valid active, already-revoked, expired, unknown, malformed,
+missing, deleted-user, and rotated-predecessor states are externally
+indistinguishable. Accepted requests clear the cookie. Logout revokes only the
+matching active, unexpired refresh session; other sessions and families are
+untouched, and existing access tokens remain valid until expiration.
+
+Logout applies the same Origin policy as refresh. A disallowed browser Origin
+returns the sanitized `403 ORIGIN_NOT_ALLOWED` response before revocation and
+does not clear the cookie. An absent Origin is accepted for trusted non-browser
+clients and internal tests. Unexpected infrastructure failures return the
+sanitized 500 response and still clear the cookie because Origin validation
+accepted the request.
+
+No success transport contract is defined for logout because a 204 response has
+no body. Version 1.2.4 does not add current-user, frontend authentication,
+guard, or global-logout routes.
 
 ## Errors
 
@@ -140,5 +158,6 @@ internal exception objects are never response data. Clients may send
 `x-request-id`; the API otherwise generates one and returns it in the header and
 error body.
 
-Pagination, filtering, idempotency, and concurrency conventions will be added
-with the first endpoint that needs them rather than guessed in Version 0.
+Logout documents its endpoint-specific idempotency above. Pagination,
+filtering, and broader concurrency conventions will be added with the first
+business endpoint that needs them rather than guessed in advance.

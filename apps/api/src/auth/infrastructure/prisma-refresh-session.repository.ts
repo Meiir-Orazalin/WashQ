@@ -6,6 +6,7 @@ import {
   type CreateRefreshSession,
   type RefreshSession,
   type RefreshSessionRepository,
+  type RevokeActiveRefreshSessionByTokenHash,
   type RotateRefreshSession,
   type RotateRefreshSessionResult,
 } from '../application/refresh-session.repository.js';
@@ -67,6 +68,17 @@ export class PrismaRefreshSessionRepository implements RefreshSessionRepository 
       where: { id: sessionId },
       data: { revokedAt },
       select: { id: true },
+    });
+  }
+
+  async revokeActiveByTokenHash(input: RevokeActiveRefreshSessionByTokenHash): Promise<void> {
+    await this.prisma.refreshSession.updateMany({
+      where: {
+        tokenHash: input.tokenHash,
+        revokedAt: null,
+        expiresAt: { gt: input.revokedAt },
+      },
+      data: { revokedAt: input.revokedAt },
     });
   }
 

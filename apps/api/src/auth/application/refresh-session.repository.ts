@@ -28,12 +28,18 @@ export interface RotateRefreshSession {
   rotatedAt: Date;
 }
 
+export interface RevokeActiveRefreshSessionByTokenHash {
+  tokenHash: RefreshTokenHash;
+  revokedAt: Date;
+}
+
 export type RotateRefreshSessionResult = { status: 'rotated' } | { status: 'stale' };
 
 export interface RefreshSessionRepository {
   create(input: CreateRefreshSession): Promise<RefreshSession>;
   findByTokenHash(tokenHash: RefreshTokenHash): Promise<RefreshSession | null>;
   revoke(sessionId: string, revokedAt: Date): Promise<void>;
+  revokeActiveByTokenHash(input: RevokeActiveRefreshSessionByTokenHash): Promise<void>;
   revokeFamily(familyId: string, revokedAt: Date): Promise<void>;
   rotate(input: RotateRefreshSession): Promise<RotateRefreshSessionResult>;
 }

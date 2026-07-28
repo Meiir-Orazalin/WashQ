@@ -40,6 +40,14 @@ test synchronizes two refresh attempts using one token and proves that no more
 than one succeeds, one replacement remains active, and a later replay revokes
 only the compromised family.
 
+Version 1.2.4 adds application tests for token-shape validation, branded-hash
+repository input, idempotent state handling, and propagated infrastructure
+failures. HTTP tests cover empty 204 responses, centralized cookie clearing,
+shared Origin protection, sanitized 403/500 responses, log privacy, and
+OpenAPI. Real-PostgreSQL tests prove atomic one-session revocation, isolation
+from other sessions and families, rotated-predecessor behavior, deletion
+cascade, hashed-only persistence, and two simultaneous logout attempts.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

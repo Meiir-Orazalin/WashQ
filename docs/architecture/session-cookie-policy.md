@@ -1,6 +1,6 @@
 # Refresh-session cookie policy
 
-Versions 1.2.2 and 1.2.3 transport the opaque refresh token only through a
+Versions 1.2.2 through 1.2.4 transport the opaque refresh token only through a
 response cookie. The cookie policy is centralized in the API presentation
 layer.
 
@@ -25,11 +25,18 @@ the new opaque token and returns only the new access token and expiration.
 Invalid refresh sessions clear the cookie with the same path, same-site, and
 security attributes.
 
-Refresh is cookie-authenticated and therefore validates a browser `Origin`
-header against the configured `CORS_ORIGINS` allowlist. Arbitrary origins are
-not echoed. An absent `Origin` is accepted for trusted non-browser clients and
-internal tests; callers in that category remain responsible for protecting
-their credential context. `SameSite=Lax`, explicit credentialed CORS, and the
-Origin check are the current CSRF controls. A separate CSRF token is not added
-because refresh has no caller-selected state transition beyond rotating the
-presented session. Logout must repeat this review in its own slice.
+Current-session logout always expires the cookie after Origin validation is
+accepted, using `HttpOnly`, `SameSite=Lax`, `Path=/api/v1/auth`, the
+environment-specific `Secure` setting, and no `Domain`. This clearing occurs
+for valid, missing, malformed, unknown, expired, revoked, deleted-user, and
+rotated-predecessor tokens, and also when an unexpected accepted-request
+infrastructure failure becomes a sanitized 500. A disallowed Origin is rejected
+before cookie clearing.
+
+Refresh and logout are cookie-authenticated and therefore validate a browser
+`Origin` header through the same configured `CORS_ORIGINS` allowlist policy.
+Arbitrary origins are not echoed. An absent `Origin` is accepted for trusted
+non-browser clients and internal tests; callers in that category remain
+responsible for protecting their credential context. `SameSite=Lax`, explicit
+credentialed CORS, and the Origin check are the current CSRF controls. A
+separate CSRF token is not added in Version 1.2.4.

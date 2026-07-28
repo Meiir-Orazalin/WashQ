@@ -6,6 +6,7 @@ import { refreshResponseSchema } from '@washqueue/contracts';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
+import { LogoutCurrentSessionUseCase } from '../src/auth/application/logout-current-session.use-case.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
 import {
   InvalidRefreshSessionError,
@@ -90,6 +91,10 @@ describe('POST /api/v1/auth/refresh', () => {
         { provide: RegisterCustomerUseCase, useValue: { execute: () => Promise.reject() } },
         { provide: LoginCustomerUseCase, useValue: { execute: () => Promise.reject() } },
         { provide: RotateRefreshSessionUseCase, useValue: rotateRefreshSession },
+        {
+          provide: LogoutCurrentSessionUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
         {
           provide: RefreshRequestOriginPolicy,
           useValue: new RefreshRequestOriginPolicy([allowedOrigin]),

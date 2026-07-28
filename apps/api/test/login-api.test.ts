@@ -7,6 +7,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessTokenService } from '../src/auth/application/access-token.service.js';
 import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
+import { LogoutCurrentSessionUseCase } from '../src/auth/application/logout-current-session.use-case.js';
 import type { PasswordHasher } from '../src/auth/application/password-hasher.js';
 import type {
   CreateRefreshSession,
@@ -142,6 +143,7 @@ describe('POST /api/v1/auth/login', () => {
       },
       findByTokenHash: async () => null,
       revoke: async () => undefined,
+      revokeActiveByTokenHash: async () => undefined,
       revokeFamily: async () => undefined,
       rotate: async () => ({ status: 'stale' }),
     };
@@ -161,6 +163,10 @@ describe('POST /api/v1/auth/login', () => {
         { provide: LoginCustomerUseCase, useValue: loginCustomer },
         {
           provide: RotateRefreshSessionUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: LogoutCurrentSessionUseCase,
           useValue: { execute: async () => Promise.reject(new Error('not used')) },
         },
         {

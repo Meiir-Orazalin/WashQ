@@ -19,6 +19,7 @@ import {
   ApiCookieAuth,
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -31,6 +32,7 @@ import {
   InvalidCredentialsError,
   LoginCustomerUseCase,
 } from '../application/login-customer.use-case.js';
+import { LogoutCurrentSessionUseCase } from '../application/logout-current-session.use-case.js';
 import { RegisterCustomerUseCase } from '../application/register-customer.use-case.js';
 import {
   InvalidRefreshSessionError,
@@ -60,6 +62,8 @@ export class AuthController {
     private readonly refreshTokenCookiePolicy: RefreshTokenCookiePolicy,
     @Inject(RotateRefreshSessionUseCase)
     private readonly rotateRefreshSession: RotateRefreshSessionUseCase,
+    @Inject(LogoutCurrentSessionUseCase)
+    private readonly logoutCurrentSession: LogoutCurrentSessionUseCase,
     @Inject(RefreshRequestOriginPolicy)
     private readonly refreshRequestOriginPolicy: RefreshRequestOriginPolicy,
   ) {}
@@ -181,6 +185,41 @@ export class AuthController {
       }
 
       throw error;
+    }
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiCookieAuth('refresh-cookie')
+  @ApiOperation({
+    summary: 'Log out the current refresh session',
+    description:
+      'Idempotently revokes only the session represented by the HttpOnly refresh cookie, validates browser Origin when present, and clears the cookie. Requests without Origin are accepted for trusted non-browser clients. Existing access tokens remain valid until expiration.',
+  })
+  @ApiNoContentResponse({
+    description:
+      'The current refresh session is no longer usable, if it existed, and the refresh cookie was cleared.',
+  })
+  @ApiForbiddenResponse({ description: 'The browser Origin is not allowed.' })
+  @ApiInternalServerErrorResponse({ description: 'An unexpected sanitized failure occurred.' })
+  async logout(
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Headers('origin') origin: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    if (!this.refreshRequestOriginPolicy.isAllowed(origin)) {
+      throw new ForbiddenException({
+        code: 'ORIGIN_NOT_ALLOWED',
+        message: 'The request origin is not allowed',
+      });
+    }
+
+    try {
+      await this.logoutCurrentSession.execute({
+        rawRefreshToken: readRefreshTokenCookie(cookieHeader),
+      });
+    } finally {
+      response.clearCookie(refreshTokenCookieName, this.refreshTokenCookiePolicy.getClearOptions());
     }
   }
 }

@@ -43,6 +43,8 @@ describe('RotateRefreshSessionUseCase', () => {
   const createSession = vi.fn<RefreshSessionRepository['create']>();
   const findSession = vi.fn<RefreshSessionRepository['findByTokenHash']>();
   const revokeSession = vi.fn<RefreshSessionRepository['revoke']>();
+  const revokeActiveSessionByTokenHash =
+    vi.fn<RefreshSessionRepository['revokeActiveByTokenHash']>();
   const revokeFamily = vi.fn<RefreshSessionRepository['revokeFamily']>();
   const rotateSession = vi.fn<RefreshSessionRepository['rotate']>();
 
@@ -64,6 +66,7 @@ describe('RotateRefreshSessionUseCase', () => {
     createSession.mockReset();
     findSession.mockReset().mockResolvedValue(session);
     revokeSession.mockReset();
+    revokeActiveSessionByTokenHash.mockReset();
     revokeFamily.mockReset().mockResolvedValue();
     rotateSession.mockReset().mockResolvedValue({ status: 'rotated' });
 
@@ -75,6 +78,7 @@ describe('RotateRefreshSessionUseCase', () => {
         create: createSession,
         findByTokenHash: findSession,
         revoke: revokeSession,
+        revokeActiveByTokenHash: revokeActiveSessionByTokenHash,
         revokeFamily,
         rotate: rotateSession,
       },
