@@ -33,6 +33,7 @@ describe('RegisterCustomerUseCase', () => {
   const verifyDummy = vi.fn<PasswordHasher['verifyDummy']>();
   const create = vi.fn<UserRepository['create']>();
   const findAuthenticationByEmail = vi.fn<UserRepository['findAuthenticationByEmail']>();
+  const findPublicById = vi.fn<UserRepository['findPublicById']>();
 
   beforeEach(() => {
     hash.mockReset().mockResolvedValue('stored-password-hash');
@@ -40,8 +41,9 @@ describe('RegisterCustomerUseCase', () => {
     verifyDummy.mockReset();
     create.mockReset().mockResolvedValue(registeredUser);
     findAuthenticationByEmail.mockReset();
+    findPublicById.mockReset();
     passwordHasher = { hash, verify, verifyDummy };
-    userRepository = { create, findAuthenticationByEmail };
+    userRepository = { create, findAuthenticationByEmail, findPublicById };
     registerCustomer = new RegisterCustomerUseCase(passwordHasher, userRepository);
   });
 

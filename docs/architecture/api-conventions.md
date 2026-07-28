@@ -19,6 +19,7 @@ POST /api/v1/auth/register
 POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
+GET /api/v1/auth/me
 ```
 
 Liveness returns:
@@ -133,8 +134,35 @@ sanitized 500 response and still clear the cookie because Origin validation
 accepted the request.
 
 No success transport contract is defined for logout because a 204 response has
-no body. Version 1.2.4 does not add current-user, frontend authentication,
-guard, or global-logout routes.
+no body.
+
+Current-user lookup has no request body and authenticates only through:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Success returns current database values with `200 OK`:
+
+```json
+{
+  "user": {
+    "id": "df4e7850-e329-4679-91f1-77b409d93f4f",
+    "firstName": "Meiir",
+    "lastName": "Orazalin",
+    "email": "meiir@example.com"
+  }
+}
+```
+
+Missing, malformed, expired, invalid-signature, wrong-type, invalid-subject,
+and deleted-user credentials all return `401 AUTHENTICATION_REQUIRED` with the
+message `Authentication is required`. The response contains no token, claim,
+credential, role, session, or Prisma data. `/auth/me` does not read or mutate a
+refresh cookie or refresh session.
+
+Version 1.2.5 does not add frontend authentication, a global guard, protected
+business routes, or global logout.
 
 ## Errors
 

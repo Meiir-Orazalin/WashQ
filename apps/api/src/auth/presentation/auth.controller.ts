@@ -3,6 +3,7 @@ import {
   ConflictException,
   Controller,
   ForbiddenException,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
@@ -13,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -25,13 +27,21 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import type { LoginResponse, RegistrationResponse } from '@washqueue/contracts';
+import type {
+  CurrentUserResponse,
+  LoginResponse,
+  RegistrationResponse,
+} from '@washqueue/contracts';
 import type { RefreshResponse } from '@washqueue/contracts';
 import type { Response } from 'express';
 import {
   InvalidCredentialsError,
   LoginCustomerUseCase,
 } from '../application/login-customer.use-case.js';
+import {
+  AuthenticationRequiredError,
+  GetCurrentUserUseCase,
+} from '../application/get-current-user.use-case.js';
 import { LogoutCurrentSessionUseCase } from '../application/logout-current-session.use-case.js';
 import { RegisterCustomerUseCase } from '../application/register-customer.use-case.js';
 import {
@@ -42,6 +52,9 @@ import { DuplicateUserEmailError } from '../../users/application/user-repository
 import { LoginRequestDto } from './login-request.dto.js';
 import { LoginResponseDto } from './login-response.dto.js';
 import { mapLoginResponse } from './login-response.mapper.js';
+import { readBearerToken } from './bearer-token.reader.js';
+import { CurrentUserResponseDto } from './current-user-response.dto.js';
+import { mapCurrentUserResponse } from './current-user-response.mapper.js';
 import { RefreshRequestOriginPolicy } from './refresh-request-origin.policy.js';
 import { RefreshResponseDto } from './refresh-response.dto.js';
 import { mapRefreshResponse } from './refresh-response.mapper.js';
@@ -58,6 +71,8 @@ export class AuthController {
     private readonly registerCustomer: RegisterCustomerUseCase,
     @Inject(LoginCustomerUseCase)
     private readonly loginCustomer: LoginCustomerUseCase,
+    @Inject(GetCurrentUserUseCase)
+    private readonly getCurrentUser: GetCurrentUserUseCase,
     @Inject(RefreshTokenCookiePolicy)
     private readonly refreshTokenCookiePolicy: RefreshTokenCookiePolicy,
     @Inject(RotateRefreshSessionUseCase)
@@ -67,6 +82,39 @@ export class AuthController {
     @Inject(RefreshRequestOriginPolicy)
     private readonly refreshRequestOriginPolicy: RefreshRequestOriginPolicy,
   ) {}
+
+  @Get('me')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Get the authenticated customer',
+    description:
+      'Authenticates only with the Bearer access token and returns the current public user values from PostgreSQL.',
+  })
+  @ApiOkResponse({
+    type: CurrentUserResponseDto,
+    description: 'The access token is valid and its user still exists.',
+  })
+  @ApiUnauthorizedResponse({ description: 'Authentication is required.' })
+  @ApiInternalServerErrorResponse({ description: 'An unexpected sanitized failure occurred.' })
+  async currentUser(
+    @Headers('authorization') authorizationHeader: string | string[] | undefined,
+  ): Promise<CurrentUserResponse> {
+    try {
+      const user = await this.getCurrentUser.execute({
+        accessToken: readBearerToken(authorizationHeader),
+      });
+      return mapCurrentUserResponse(user);
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        throw new UnauthorizedException({
+          code: 'AUTHENTICATION_REQUIRED',
+          message: 'Authentication is required',
+        });
+      }
+
+      throw error;
+    }
+  }
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)

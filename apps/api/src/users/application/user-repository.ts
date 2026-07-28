@@ -23,9 +23,17 @@ export interface UserAuthenticationRecord {
   passwordHash: string;
 }
 
+export interface PublicUser {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+}
+
 export interface UserRepository {
   create(user: CreateUser): Promise<RegisteredUser>;
   findAuthenticationByEmail(email: string): Promise<UserAuthenticationRecord | null>;
+  findPublicById(id: string): Promise<PublicUser | null>;
 }
 
 export class DuplicateUserEmailError extends Error {

@@ -4,8 +4,9 @@ Version 1.2.1 establishes authentication configuration and token/session
 infrastructure. Version 1.2.2 adds backend customer login and initial refresh
 session issuance. Version 1.2.3 adds one-time refresh-token rotation and
 family-scoped replay detection. Version 1.2.4 adds idempotent logout of the
-current refresh session. Current-user, guards, frontend authentication, and
-protected business endpoints remain absent.
+current refresh session. Version 1.2.5 adds access-token authentication for the
+current-user endpoint. Global guards, frontend authentication, and protected
+business endpoints remain absent.
 
 ## Boundaries
 
@@ -144,6 +145,35 @@ sanitized global 500 boundary.
 
 Logout revokes no access token and adds no blacklist. Any access token issued
 before logout remains valid until its short expiration.
+
+## Current-user flow
+
+`GET /api/v1/auth/me` follows this order:
+
+```text
+focused Authorization Bearer parsing
+  -> access-token verification
+  -> verified subject UUID validation
+  -> public user lookup by ID
+  -> strict current-user response mapping
+```
+
+The presentation layer parses the header and translates all expected
+authentication failures to `401 AUTHENTICATION_REQUIRED`. The application use
+case depends only on `AccessTokenService` and `UserRepository`; JOSE remains in
+the token adapter and Prisma remains in the user repository. The repository
+selects only ID, first name, nullable last name, and email.
+
+The endpoint is stateless with respect to refresh sessions. It never reads or
+mutates the refresh cookie or session table. Logout and refresh-family
+revocation do not blacklist an already-issued access token, which remains
+usable until its short expiration. Deleting the referenced user causes the
+public lookup to fail and produces the same generic 401 as every other expected
+authentication failure.
+
+The Bearer authentication adapter is scoped only to `/auth/me`. Later protected
+endpoints may reuse the narrow reader and application boundary, but Version
+1.2.5 introduces no global guard and protects no unrelated route.
 
 ## Configuration
 
