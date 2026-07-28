@@ -22,16 +22,22 @@ model User {
 }
 
 model RefreshSession {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
-  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  familyId            String    @default(dbgenerated("gen_random_uuid()")) @map("family_id") @db.Uuid
+  tokenHash           String    @unique @map("token_hash") @db.VarChar(64)
+  expiresAt           DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedBySessionId String?   @unique @map("replaced_by_session_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  replacement RefreshSession? @relation("RefreshSessionReplacement", fields: [replacedBySessionId], references: [id], onDelete: SetNull)
+  replaces    RefreshSession? @relation("RefreshSessionReplacement")
+
+  @@index([familyId, revokedAt])
   @@index([userId])
   @@map("refresh_sessions")
 }

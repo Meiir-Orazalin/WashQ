@@ -18,7 +18,9 @@ import type {
   RefreshTokenHasher,
 } from '../src/auth/application/refresh-token-hasher.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
+import { RotateRefreshSessionUseCase } from '../src/auth/application/rotate-refresh-session.use-case.js';
 import { AuthController } from '../src/auth/presentation/auth.controller.js';
+import { RefreshRequestOriginPolicy } from '../src/auth/presentation/refresh-request-origin.policy.js';
 import {
   RefreshTokenCookiePolicy,
   refreshTokenCookieName,
@@ -130,14 +132,18 @@ describe('POST /api/v1/auth/login', () => {
         return {
           id: '9bb9aedc-8dc8-409f-86ee-d6be41e71493',
           userId: input.userId,
+          familyId: '8ca97bb3-06dc-4f9a-ab8b-fbf4244ae415',
           expiresAt: input.expiresAt,
           revokedAt: null,
+          replacedBySessionId: null,
           createdAt: now,
           updatedAt: now,
         };
       },
       findByTokenHash: async () => null,
       revoke: async () => undefined,
+      revokeFamily: async () => undefined,
+      rotate: async () => ({ status: 'stale' }),
     };
     const loginCustomer = new LoginCustomerUseCase(
       userRepository,
@@ -153,6 +159,14 @@ describe('POST /api/v1/auth/login', () => {
       providers: [
         { provide: RegisterCustomerUseCase, useValue: { execute: () => Promise.reject() } },
         { provide: LoginCustomerUseCase, useValue: loginCustomer },
+        {
+          provide: RotateRefreshSessionUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: RefreshRequestOriginPolicy,
+          useValue: new RefreshRequestOriginPolicy(['http://localhost:3000']),
+        },
         {
           provide: RefreshTokenCookiePolicy,
           useValue: new RefreshTokenCookiePolicy({

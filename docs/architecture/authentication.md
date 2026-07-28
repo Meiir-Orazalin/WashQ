@@ -2,7 +2,8 @@
 
 Version 1.2.1 establishes authentication configuration and token/session
 infrastructure. Version 1.2.2 adds backend customer login and initial refresh
-session issuance. Refresh rotation, logout, current-user, guards, and protected
+session issuance. Version 1.2.3 adds one-time refresh-token rotation and
+family-scoped replay detection. Logout, current-user, guards, and protected
 business endpoints remain absent.
 
 ## Boundaries
@@ -73,13 +74,43 @@ protected by Argon2id.
 
 Each refresh session belongs to one user and has an explicit expiration and
 optional revocation timestamp. A user may own multiple sessions. Deleting the
-user cascades to their sessions. Rotation and replacement linkage are deferred
-until the refresh use case is implemented.
+user cascades to their sessions.
+
+Every login starts a new UUID session family. A successful rotation creates one
+replacement in the same family, revokes the prior session, and links it through
+`replacedBySessionId` in one repository transaction. The Prisma adapter locks
+the old PostgreSQL row and checks its previously observed update timestamp, so
+at most one simultaneous request succeeds.
+
+Presenting an already-linked token later is replay evidence. The use case
+revokes active sessions only in that family; independent login families remain
+active. A losing in-flight concurrent request receives the same invalid-refresh
+result without revoking the successful replacement. See
+[ADR 0009](../decisions/0009-refresh-token-rotation-and-family-replay-revocation.md).
 
 The raw token crosses only the application-to-presentation boundary after
 successful session persistence. It is written to the `washqueue_refresh`
 HttpOnly cookie and is never included in JSON. See the
 [session cookie policy](session-cookie-policy.md).
+
+## Refresh flow
+
+`POST /api/v1/auth/refresh` follows this order:
+
+```text
+cookie parsing and browser-Origin validation
+  -> presented-token hashing and session lookup
+  -> active, unexpired, existing-user check
+  -> replacement-token generation and hashing
+  -> access-token issuance
+  -> atomic old-session revocation and replacement creation
+  -> strict public response mapping and cookie overwrite
+```
+
+Missing, malformed, unknown, expired, revoked, deleted-user, and replayed
+sessions produce the same `INVALID_REFRESH_SESSION` response and clear the
+refresh cookie. Unexpected infrastructure failures use the sanitized global
+500 response and do not write a cookie.
 
 ## Configuration
 

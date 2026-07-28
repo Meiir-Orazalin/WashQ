@@ -11,16 +11,31 @@ export interface CreateRefreshSession {
 export interface RefreshSession {
   id: string;
   userId: string;
+  familyId: string;
   expiresAt: Date;
   revokedAt: Date | null;
+  replacedBySessionId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface RotateRefreshSession {
+  sessionId: string;
+  presentedTokenHash: RefreshTokenHash;
+  expectedUpdatedAt: Date;
+  replacementTokenHash: RefreshTokenHash;
+  replacementExpiresAt: Date;
+  rotatedAt: Date;
+}
+
+export type RotateRefreshSessionResult = { status: 'rotated' } | { status: 'stale' };
 
 export interface RefreshSessionRepository {
   create(input: CreateRefreshSession): Promise<RefreshSession>;
   findByTokenHash(tokenHash: RefreshTokenHash): Promise<RefreshSession | null>;
   revoke(sessionId: string, revokedAt: Date): Promise<void>;
+  revokeFamily(familyId: string, revokedAt: Date): Promise<void>;
+  rotate(input: RotateRefreshSession): Promise<RotateRefreshSessionResult>;
 }
 
 export class DuplicateRefreshTokenHashError extends Error {

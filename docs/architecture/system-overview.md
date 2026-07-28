@@ -24,9 +24,10 @@ Version 0 contains the technical foundation. Version 1.1 adds customer
 registration: shared request/response contracts, an auth registration use case,
 users persistence, Argon2id password hashing, and the `/register` web route.
 Version 1.2.1 adds server-only authentication configuration, token service
-ports, cryptographic adapters, and refresh-session persistence. Public login,
-refresh, logout, current-user, vehicles, and organization capabilities do not
-exist.
+ports, cryptographic adapters, and refresh-session persistence. Versions 1.2.2
+and 1.2.3 add backend login, cookie-backed refresh rotation, and family-scoped
+replay detection. Logout, current-user, frontend login, vehicles, and
+organization capabilities do not exist.
 
 ## Runtime boundaries
 

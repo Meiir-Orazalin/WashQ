@@ -70,3 +70,18 @@ The `refresh_sessions` table contains only:
 Migration `20260727104041_add_refresh_sessions` creates the table, unique token
 hash index, user lookup index, and cascading foreign key. Multiple rows may
 belong to one user.
+
+## Version 1.2.3 rotation metadata
+
+Migration `20260727111913_add_refresh_session_families` adds:
+
+| SQL column               | Rule                                                   |
+| ------------------------ | ------------------------------------------------------ |
+| `family_id`              | required UUID; new per login, retained across rotation |
+| `replaced_by_session_id` | nullable unique self-reference; `ON DELETE SET NULL`   |
+
+The migration also creates an index on `(family_id, revoked_at)` for
+family-scoped active-session revocation. Rotation locks the old row and
+atomically creates the replacement, revokes the old row, and writes its
+replacement linkage. The unique token-hash constraint continues to ensure that
+only hashes—not raw refresh tokens—are persistence identifiers.

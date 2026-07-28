@@ -45,13 +45,22 @@ before they are implemented.
   token. The raw refresh token is exposed only through an HttpOnly,
   `SameSite=Lax`, auth-path-scoped cookie.
 - Refresh cookies are `Secure` in production and omit `Domain`.
+- Refresh tokens are single-use. Rotation occurs in a row-locking PostgreSQL
+  transaction, so simultaneous requests create no more than one replacement.
+- Reuse of an already-replaced token revokes active sessions only in its UUID
+  family. Other login families remain active.
+- Cookie-authenticated refresh requests validate a present browser `Origin`
+  against configured frontend origins. An absent Origin is accepted only for
+  trusted non-browser clients and internal tests.
+- Invalid refresh-session conditions are externally indistinguishable, clear
+  the auth-scoped cookie, and never return refresh or session data.
 
 ## Explicit future boundaries
 
-Refresh, logout, authentication guards, and authorization arrive in later
-Version 1 slices and must default to denial for protected use cases. Rate
-limiting, audit logging, expanded CSRF controls, monitoring, and production
-hardening arrive in later versions when their flows exist.
+Logout, authentication guards, and authorization arrive in later Version 1
+slices and must default to denial for protected use cases. Rate limiting, audit
+logging, expanded CSRF controls, monitoring, and production hardening arrive in
+later versions when their flows exist.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment
