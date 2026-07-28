@@ -17,6 +17,7 @@ GET /api/v1/health
 GET /api/v1/health/ready
 POST /api/v1/auth/register
 POST /api/v1/auth/login
+POST /api/v1/auth/refresh
 ```
 
 Liveness returns:
@@ -93,7 +94,29 @@ cookie. The refresh token, its hash, and refresh-session metadata are absent
 from JSON. Unknown email and incorrect password both return
 `401 INVALID_CREDENTIALS` with the message `Invalid email or password`.
 
-Version 1.2.2 does not add refresh, logout, or current-user routes.
+Refresh has no JSON request body. It reads the opaque token from the
+`washqueue_refresh` HttpOnly cookie. Success returns `200 OK`:
+
+```json
+{
+  "accessToken": "signed-access-token",
+  "accessTokenExpiresAt": "2026-07-27T12:15:00.000Z"
+}
+```
+
+The response never contains a refresh token or session identifier. The old
+session is atomically replaced and the cookie is overwritten only after
+persistence succeeds. Missing, malformed, unknown, expired, revoked,
+deleted-user, and replayed sessions all return
+`401 INVALID_REFRESH_SESSION` and clear the cookie.
+
+Browser requests to refresh must include an `Origin` exactly matching one of
+the configured frontend origins. An unapproved Origin returns
+`403 ORIGIN_NOT_ALLOWED`; requests without Origin are accepted for trusted
+non-browser clients and internal tests. Credentialed CORS never echoes an
+arbitrary origin.
+
+Version 1.2.3 does not add logout or current-user routes.
 
 ## Errors
 

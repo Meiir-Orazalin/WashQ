@@ -25,4 +25,13 @@ export class RefreshTokenCookiePolicy {
       secure: this.secure,
     };
   }
+
+  getClearOptions(): CookieOptions {
+    return {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/api/v1/auth',
+      secure: this.secure,
+    };
+  }
 }

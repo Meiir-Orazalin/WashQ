@@ -53,6 +53,8 @@ describe('LoginCustomerUseCase', () => {
   const createSession = vi.fn<RefreshSessionRepository['create']>();
   const findSession = vi.fn<RefreshSessionRepository['findByTokenHash']>();
   const revokeSession = vi.fn<RefreshSessionRepository['revoke']>();
+  const revokeFamily = vi.fn<RefreshSessionRepository['revokeFamily']>();
+  const rotateSession = vi.fn<RefreshSessionRepository['rotate']>();
 
   let rawRefreshToken: string;
   let useCase: LoginCustomerUseCase;
@@ -72,13 +74,17 @@ describe('LoginCustomerUseCase', () => {
     createSession.mockReset().mockResolvedValue({
       id: '9bb9aedc-8dc8-409f-86ee-d6be41e71493',
       userId: authenticationRecord.id,
+      familyId: '8ca97bb3-06dc-4f9a-ab8b-fbf4244ae415',
       expiresAt: new Date('2026-08-26T12:00:00.000Z'),
       revokedAt: null,
+      replacedBySessionId: null,
       createdAt: now,
       updatedAt: now,
     });
     findSession.mockReset();
     revokeSession.mockReset();
+    revokeFamily.mockReset();
+    rotateSession.mockReset();
 
     useCase = new LoginCustomerUseCase(
       { create: createUser, findAuthenticationByEmail },
@@ -86,7 +92,13 @@ describe('LoginCustomerUseCase', () => {
       { issue: issueAccessToken, verify: verifyAccessToken },
       { generate: generateRefreshToken },
       { hash: hashRefreshToken, verify: verifyRefreshToken },
-      { create: createSession, findByTokenHash: findSession, revoke: revokeSession },
+      {
+        create: createSession,
+        findByTokenHash: findSession,
+        revoke: revokeSession,
+        revokeFamily,
+        rotate: rotateSession,
+      },
       { refreshTokenLifetimeSeconds: 2_592_000, now: () => now },
     );
   });

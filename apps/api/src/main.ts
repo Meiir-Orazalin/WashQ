@@ -50,6 +50,15 @@ async function bootstrap(): Promise<void> {
         .setTitle('WashQueue KZ API')
         .setDescription('REST API foundation for WashQueue KZ')
         .setVersion('0.0.0')
+        .addCookieAuth(
+          'washqueue_refresh',
+          {
+            type: 'apiKey',
+            in: 'cookie',
+            description: 'Opaque refresh token managed as an HttpOnly cookie.',
+          },
+          'refresh-cookie',
+        )
         .build(),
     );
     SwaggerModule.setup('docs', app, document);

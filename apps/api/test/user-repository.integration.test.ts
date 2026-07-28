@@ -6,7 +6,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { PasswordHasher } from '../src/auth/application/password-hasher.js';
 import { LoginCustomerUseCase } from '../src/auth/application/login-customer.use-case.js';
 import { RegisterCustomerUseCase } from '../src/auth/application/register-customer.use-case.js';
+import { RotateRefreshSessionUseCase } from '../src/auth/application/rotate-refresh-session.use-case.js';
 import { AuthController } from '../src/auth/presentation/auth.controller.js';
+import { RefreshRequestOriginPolicy } from '../src/auth/presentation/refresh-request-origin.policy.js';
 import { RefreshTokenCookiePolicy } from '../src/auth/presentation/refresh-token-cookie.policy.js';
 import { PrismaService } from '../src/database/prisma.service.js';
 import { HttpExceptionFilter } from '../src/http/http-exception.filter.js';
@@ -126,6 +128,14 @@ describe('PrismaUserRepository integration', () => {
         {
           provide: LoginCustomerUseCase,
           useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: RotateRefreshSessionUseCase,
+          useValue: { execute: async () => Promise.reject(new Error('not used')) },
+        },
+        {
+          provide: RefreshRequestOriginPolicy,
+          useValue: new RefreshRequestOriginPolicy(['http://localhost:3000']),
         },
         {
           provide: RefreshTokenCookiePolicy,

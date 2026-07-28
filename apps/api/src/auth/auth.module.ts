@@ -8,6 +8,7 @@ import {
 } from './application/access-token.service.js';
 import { LoginCustomerUseCase } from './application/login-customer.use-case.js';
 import { RegisterCustomerUseCase } from './application/register-customer.use-case.js';
+import { RotateRefreshSessionUseCase } from './application/rotate-refresh-session.use-case.js';
 import { PASSWORD_HASHER, type PasswordHasher } from './application/password-hasher.js';
 import {
   REFRESH_SESSION_REPOSITORY,
@@ -27,6 +28,7 @@ import { JoseAccessTokenService } from './infrastructure/jose-access-token.servi
 import { PrismaRefreshSessionRepository } from './infrastructure/prisma-refresh-session.repository.js';
 import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token.hasher.js';
 import { AuthController } from './presentation/auth.controller.js';
+import { RefreshRequestOriginPolicy } from './presentation/refresh-request-origin.policy.js';
 import { RefreshTokenCookiePolicy } from './presentation/refresh-token-cookie.policy.js';
 import { USER_REPOSITORY, type UserRepository } from '../users/application/user-repository.js';
 
@@ -113,6 +115,40 @@ import { USER_REPOSITORY, type UserRepository } from '../users/application/user-
             'authentication.refreshTokenLifetimeSeconds',
           ),
         }),
+    },
+    {
+      provide: RotateRefreshSessionUseCase,
+      inject: [
+        REFRESH_TOKEN_HASHER,
+        REFRESH_TOKEN_GENERATOR,
+        ACCESS_TOKEN_SERVICE,
+        REFRESH_SESSION_REPOSITORY,
+        ConfigService,
+      ],
+      useFactory: (
+        refreshTokenHasher: RefreshTokenHasher,
+        refreshTokenGenerator: RefreshTokenGenerator,
+        accessTokenService: AccessTokenService,
+        refreshSessionRepository: RefreshSessionRepository,
+        config: ConfigService,
+      ) =>
+        new RotateRefreshSessionUseCase(
+          refreshTokenHasher,
+          refreshTokenGenerator,
+          accessTokenService,
+          refreshSessionRepository,
+          {
+            refreshTokenLifetimeSeconds: config.getOrThrow<number>(
+              'authentication.refreshTokenLifetimeSeconds',
+            ),
+          },
+        ),
+    },
+    {
+      provide: RefreshRequestOriginPolicy,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new RefreshRequestOriginPolicy(config.getOrThrow<string[]>('application.corsOrigins')),
     },
   ],
 })

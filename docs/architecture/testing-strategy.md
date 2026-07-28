@@ -33,6 +33,13 @@ real-PostgreSQL login/session tests. Security assertions cover response
 privacy, hashed-only persistence, indistinguishable credential errors, cookie
 flags, and no-cookie behavior after token or persistence failures.
 
+Version 1.2.3 adds strict refresh-response contract tests, application
+failure-ordering and replay tests, cookie-clear and browser-Origin HTTP tests,
+OpenAPI coverage, and real-PostgreSQL atomic-rotation tests. The concurrency
+test synchronizes two refresh attempts using one token and proves that no more
+than one succeeds, one replacement remains active, and a later replay revokes
+only the compromised family.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are
