@@ -103,6 +103,27 @@ login/restoration/logout regression suite. The release review repeats the
 multi-tab scenarios against the built API and real PostgreSQL and inspects only
 cookie attributes and hash-free family counts.
 
+Version 1.3.1 adds focused lifecycle-channel tests for the stable name,
+ephemeral source IDs, exact non-sensitive payloads, self-event suppression,
+malformed payload rejection, subscriber cleanup, close behavior, and
+fail-closed capability detection. Provider and component tests cover immediate
+old-memory removal, accessible synchronization UI, refresh-plus-`/auth/me` on
+every successful refresh path, atomic token/user commits, same-user and
+different-user projection changes, confirmed-only broadcast, remote logout
+without server calls, repeated-event coalescing, and generation ordering against
+login, logout, and later events.
+
+Desktop Chromium and WebKit run deterministic multi-page tests in one
+`BrowserContext`. They verify automatic same-user synchronization,
+different-account switching with the old UI removed while refresh is delayed,
+confirmed cross-tab logout, reload without a loop, repeated three-tab stress,
+maximum cookie-mutation concurrency of one, exact lifecycle payload privacy,
+memory-only tokens, final cookie attributes, and unsupported BroadcastChannel
+behavior. The release review additionally runs the built web and API
+applications with real PostgreSQL, verifies one final active refresh session
+and no family replay revocation, and compares every authenticated display with
+its Bearer-authenticated `/auth/me` result.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

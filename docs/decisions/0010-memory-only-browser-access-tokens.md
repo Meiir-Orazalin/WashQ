@@ -62,3 +62,10 @@ The Version 1.2.8 release review demonstrated that simultaneous cross-tab
 rotations could invalidate the shared cookie and family. Version 1.2.9 closes
 that race with the browser lock selected by ADR 0011. Lock names and metadata
 contain no credentials, and access tokens remain per-tab and memory-only.
+
+Version 1.3.1 retains the same boundary while adding ADR 0012 lifecycle
+notifications. Tabs never send tokens or user records to one another. A
+receiving tab clears its old memory, obtains its own token through coordinated
+refresh, and uses `/auth/me` before committing the token and authoritative user
+together. Every successful refresh path now follows that identity-verification
+rule.

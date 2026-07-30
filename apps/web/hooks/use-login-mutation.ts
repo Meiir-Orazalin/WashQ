@@ -18,8 +18,12 @@ export class SessionEstablishmentError extends Error {
 }
 
 export function useLoginMutation() {
-  const { beginAuthentication, stageAccessToken, completeAuthentication, failAuthentication } =
-    useAuthentication();
+  const {
+    beginAuthentication,
+    isAuthenticationOperationCurrent,
+    completeAuthentication,
+    failAuthentication,
+  } = useAuthentication();
   const pendingRequest = useRef<LoginRequest | null>(null);
   const requestInFlight = useRef(false);
 
@@ -27,6 +31,11 @@ export function useLoginMutation() {
     retry: false,
     mutationFn: async () => {
       const operationGeneration = beginAuthentication();
+      if (operationGeneration === null) {
+        pendingRequest.current = null;
+        requestInFlight.current = false;
+        return;
+      }
 
       try {
         let request = pendingRequest.current;
@@ -50,14 +59,17 @@ export function useLoginMutation() {
         }
 
         try {
-          if (
-            !stageAccessToken(login.accessToken, login.accessTokenExpiresAt, operationGeneration)
-          ) {
+          if (!isAuthenticationOperationCurrent(operationGeneration)) {
             return;
           }
 
           const currentUser = await getCurrentUser(login.accessToken);
-          completeAuthentication(currentUser.user, operationGeneration);
+          completeAuthentication(
+            login.accessToken,
+            login.accessTokenExpiresAt,
+            currentUser.user,
+            operationGeneration,
+          );
         } catch {
           failAuthentication(operationGeneration);
           throw new SessionEstablishmentError();

@@ -20,8 +20,9 @@ API. It contains no framework or persistence types. `apps/api` is one deployable
 process; future business capabilities are modules within that process, not
 services on a network.
 
-Browser authentication support additionally requires the Web Locks capability
-described in the [supported-browser policy](supported-browsers.md).
+Browser authentication support additionally requires the Web Locks and
+BroadcastChannel capabilities described in the
+[supported-browser policy](supported-browsers.md).
 
 Version 0 contains the technical foundation. Version 1.1 adds customer
 registration: shared request/response contracts, an auth registration use case,
@@ -36,8 +37,10 @@ provider. Version 1.2.7 adds startup restoration plus proactive,
 visibility-aware refresh coordinated within one browser document. Version 1.2.8
 adds frontend current-session logout with refresh/logout ordering. Version
 1.2.9 uses one exclusive browser Web Lock to serialize login, refresh, and
-logout cookie mutations across same-origin tabs. Global guards, vehicles, and
-organization capabilities do not exist.
+logout cookie mutations across same-origin tabs. Version 1.3.1 sends only
+non-sensitive cross-tab login/logout lifecycle notifications and verifies
+`/auth/me` before every refreshed token/user commit. Global guards, vehicles,
+and organization capabilities do not exist.
 
 ## Runtime boundaries
 

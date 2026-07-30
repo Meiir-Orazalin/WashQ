@@ -11,8 +11,11 @@ backend logout of the current refresh session. Version 1.2.5 adds the
 Bearer-authenticated backend current-user endpoint. Version 1.2.6 adds frontend
 login with memory-only authentication state. Version 1.2.7 adds controlled
 startup restoration and same-document proactive refresh without persistent
-token storage. Frontend logout, cross-tab coordination, vehicles,
-organizations, and later product functionality are not implemented.
+token storage. Versions 1.2.8 and 1.2.9 add coordinated frontend logout and a
+cross-tab Web Lock for every refresh-cookie mutation. Version 1.3.1 adds
+non-sensitive cross-tab login/logout lifecycle notification and verifies
+`/auth/me` after every successful frontend refresh. Vehicles, organizations,
+and later product functionality are not implemented.
 
 ## Repository
 
@@ -72,7 +75,11 @@ Version 1.2.6 adds `http://localhost:3000/login`; it validates through shared
 contracts, accepts the HttpOnly refresh cookie, verifies `/auth/me`, and keeps
 the access token only in React memory. Version 1.2.7 restores after reload by
 rotating that cookie once, verifying `/auth/me`, and scheduling same-document
-refresh from the server-provided expiration.
+refresh from the server-provided expiration. Version 1.2.8 adds frontend logout,
+and Version 1.2.9 serializes login, refresh, and logout across tabs with one Web
+Lock. Version 1.3.1 sends only ephemeral lifecycle events between tabs; each tab
+still obtains its own token through refresh and verifies current identity
+through `/auth/me`.
 
 ## Quality
 

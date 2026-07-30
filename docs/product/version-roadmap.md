@@ -24,6 +24,11 @@ Status: in progress.
         review.
   - [x] Version 1.2.9 — Cross-tab login/refresh/logout cookie-operation coordination
         and supported-browser verification.
+- [x] Version 1.3 — Frontend authentication identity consistency before protected
+      business actions.
+  - [x] Version 1.3.1 — Non-sensitive cross-tab account synchronization,
+        confirmed logout notification, and refresh-plus-`/auth/me` identity
+        verification.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
@@ -31,6 +36,12 @@ Version 1.2.9 closes the Version 1.2.8 cross-tab release blocker by serializing
 all browser login, refresh, and logout cookie mutations with one fail-closed
 same-origin Web Lock. Version 1 remains in progress because later customer
 profile and vehicle slices are not implemented.
+
+Version 1.3.1 resolves the remaining Version 1.2 medium-severity identity gap:
+the newest explicit login controls the shared cookie, while every tab keeps its
+own memory-only token and converges through a non-sensitive lifecycle event,
+coordinated refresh, and authoritative `/auth/me`. Confirmed logout removes
+memory in other tabs without repeating the server request.
 
 ## Version 2 — Business onboarding
 

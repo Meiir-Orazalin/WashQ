@@ -310,3 +310,64 @@ appears and no login, refresh, or logout transport starts.
 The Version 1.2.8 `[401, 200]`, cleared-cookie, and zero-active-family sequence
 is the failing baseline. It must not recur. Other tabs retain already-issued
 memory-only access tokens until expiration; access tokens are never shared.
+
+## Version 1.3.1 multi-tab identity review
+
+Use the built API and web applications with PostgreSQL, not only intercepted
+browser tests:
+
+```bash
+docker compose up -d
+pnpm db:generate
+pnpm db:migrate
+pnpm build
+pnpm --filter @washqueue/api start
+pnpm --filter @washqueue/web start
+```
+
+Run one desktop Chromium context and one pinned desktop WebKit context. Each
+context must use at least two pages so the pages share the browser cookie jar.
+Create two disposable customers without printing passwords, tokens, cookies, or
+hashes.
+
+1. Sign in customer A in one page. Confirm the other page receives exactly one
+   `session-changed` event, performs refresh followed by `/auth/me`, and displays
+   customer A. The receiver must not emit another event.
+2. Select `Sign in with another account` in the sender and sign in customer B.
+   Delay the receiver's refresh for observation. Confirm customer A disappears
+   immediately, `Updating your session…` is announced, and no old access token
+   remains available. Release the request and confirm both pages display the
+   `/auth/me` projection for customer B.
+3. Sign out in one page. Confirm logout returns 204 and sends exactly one
+   `logout` event. The receiver must clear immediately without logout, refresh,
+   or `/auth/me`. Reload both pages and confirm one invalid startup refresh per
+   page settles without a loop.
+4. Repeat account A/B switching and logout/login cycles with three pages.
+   Record only mutation start/settle ordering, response statuses, displayed
+   public identity, cookie presence/attributes, active-session counts, and
+   lifecycle event shapes.
+
+Inspect `washqueue-auth-events-v1` messages. The only allowed shapes are:
+
+```json
+{ "type": "session-changed", "sourceId": "ephemeral-per-document-id" }
+```
+
+```json
+{ "type": "logout", "sourceId": "ephemeral-per-document-id" }
+```
+
+Confirm no message, browser storage, URL, markup, console output, API log, or
+web log contains an access token, refresh token, cookie value, password, user
+data, session ID, family ID, or API response. Confirm `document.cookie` cannot
+read `washqueue_refresh`.
+
+Inspect PostgreSQL without selecting `token_hash` or `password_hash`. After all
+receivers settle, the current family must have exactly one active unexpired
+session; rotated predecessors may remain revoked for audit/replay semantics.
+No family may be replay-revoked during serialized normal use. After confirmed
+logout, the current cookie-backed session must have no active replacement.
+
+Temporarily remove `window.BroadcastChannel` in a fresh page. Confirm accessible
+unsupported-browser UI appears and no login, refresh, or logout request starts.
+Do not add a localStorage event, polling, or credential-sharing fallback.

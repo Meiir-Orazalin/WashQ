@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AuthLifecycleChannel, AuthLifecycleEvent } from '@/lib/auth-lifecycle-channel';
 import { ApiClientError } from '@/lib/api-client';
 import type { RefreshCoordinator } from '@/lib/refresh-coordinator';
 import { AuthenticationProvider, useAuthentication } from '@/providers/authentication-provider';
@@ -9,6 +10,20 @@ import { LoginForm } from './login-form';
 const accessToken = 'test-only-memory-access-token';
 const password = 'example-password';
 const defaultLockManager = navigator.locks;
+
+class TestAuthLifecycleChannel implements AuthLifecycleChannel {
+  readonly publishSessionChanged = vi.fn();
+  readonly publishLogout = vi.fn();
+  readonly close = vi.fn();
+  private readonly subscribers = new Set<(event: AuthLifecycleEvent) => void>();
+
+  subscribe(listener: (event: AuthLifecycleEvent) => void) {
+    this.subscribers.add(listener);
+    return () => {
+      this.subscribers.delete(listener);
+    };
+  }
+}
 
 function futureTimestamp(milliseconds = 15 * 60_000) {
   return new Date(Date.now() + milliseconds).toISOString();
@@ -35,7 +50,10 @@ const currentUserResponse = {
   },
 };
 
-function renderForm(refreshCoordinator: RefreshCoordinator = invalidSessionCoordinator()) {
+function renderForm(
+  refreshCoordinator: RefreshCoordinator = invalidSessionCoordinator(),
+  lifecycleChannel?: AuthLifecycleChannel,
+) {
   const client = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -44,7 +62,10 @@ function renderForm(refreshCoordinator: RefreshCoordinator = invalidSessionCoord
 
   const rendered = render(
     <QueryClientProvider client={client}>
-      <AuthenticationProvider refreshCoordinator={refreshCoordinator}>
+      <AuthenticationProvider
+        refreshCoordinator={refreshCoordinator}
+        {...(lifecycleChannel ? { lifecycleChannelFactory: () => lifecycleChannel } : {})}
+      >
         <LoginForm />
         <AuthenticationProbe />
       </AuthenticationProvider>
@@ -54,8 +75,11 @@ function renderForm(refreshCoordinator: RefreshCoordinator = invalidSessionCoord
   return { ...rendered, client };
 }
 
-async function renderReadyForm(refreshCoordinator?: RefreshCoordinator) {
-  const rendered = renderForm(refreshCoordinator);
+async function renderReadyForm(
+  refreshCoordinator?: RefreshCoordinator,
+  lifecycleChannel?: AuthLifecycleChannel,
+) {
+  const rendered = renderForm(refreshCoordinator, lifecycleChannel);
   await screen.findByLabelText('Email');
   return rendered;
 }
@@ -300,7 +324,7 @@ describe('LoginForm', () => {
     expect(await screen.findByLabelText('Email')).toBeVisible();
   });
 
-  it('stages the token only in memory, verifies /me, and displays its current user', async () => {
+  it('keeps the token staged locally, verifies /me, and commits token and user together', async () => {
     let resolveCurrentUser: ((response: Response) => void) | undefined;
     const currentUserPending = new Promise<Response>((resolve) => {
       resolveCurrentUser = resolve;
@@ -312,7 +336,8 @@ describe('LoginForm', () => {
       return currentUserPending;
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { client } = await renderReadyForm();
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    const { client } = await renderReadyForm(undefined, lifecycleChannel);
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -324,7 +349,7 @@ describe('LoginForm', () => {
       );
       expect(screen.getByTestId('authentication-state')).toHaveAttribute(
         'data-access-token',
-        'present',
+        'absent',
       );
     });
 
@@ -336,10 +361,12 @@ describe('LoginForm', () => {
         Authorization: `Bearer ${accessToken}`,
       },
     });
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
 
     resolveCurrentUser?.(jsonResponse(currentUserResponse));
 
     expect(await screen.findByText('You are signed in')).toBeVisible();
+    expect(lifecycleChannel.publishSessionChanged).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Current Customer')).toBeVisible();
     expect(screen.getByText('meiir@example.com')).toBeVisible();
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
@@ -363,12 +390,40 @@ describe('LoginForm', () => {
     expect(document.body.innerHTML).not.toContain(accessToken);
   });
 
+  it('clears only local memory before an explicit sign-in with another account', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    await renderReadyForm(undefined, lifecycleChannel);
+    fillValidForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByRole('heading', { name: 'You are signed in' });
+    lifecycleChannel.publishSessionChanged.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in with another account' }));
+
+    expect(screen.getByLabelText('Email')).toBeVisible();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+    expect(lifecycleChannel.publishLogout).not.toHaveBeenCalled();
+  });
+
   it('shows a focused generic invalid-credentials error and does not call /me', async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValue(apiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password'));
     vi.stubGlobal('fetch', fetchMock);
-    await renderReadyForm();
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    await renderReadyForm(undefined, lifecycleChannel);
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -381,6 +436,7 @@ describe('LoginForm', () => {
       'data-access-token',
       'absent',
     );
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
   });
 
   it.each([

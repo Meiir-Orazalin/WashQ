@@ -190,6 +190,13 @@ for an already-committing local rotation without becoming a token store.
 Authentication tokens remain owned by the provider, not the client, lock, or
 TanStack Query. No global interceptor or arbitrary 401 retry exists.
 
+After every successful coordinator result, the provider makes one explicit
+`GET /auth/me` request with the returned token before committing refreshed
+authentication. This applies to startup, proactive, visibility, and remote
+session-change paths. `/auth/me` stays outside the cookie-mutation lock because
+it neither reads nor changes the refresh cookie. Cross-tab lifecycle events
+remain outside the API client and contain no HTTP response, token, or user data.
+
 ## Errors
 
 All errors use:

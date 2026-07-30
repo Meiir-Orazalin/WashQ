@@ -207,7 +207,7 @@ test('@cross-tab orders refresh before logout and sends the newest cookie', asyn
 
   refreshCanSettle?.();
   await refreshPageReload;
-  await expectAuthenticated(refreshPage);
+  await expect(refreshPage.getByLabel('Email')).toBeVisible();
   await expect(logoutPage.getByLabel('Email')).toBeVisible();
 
   expect(order).toEqual(['refresh-start', 'refresh-settle', 'logout-start']);
@@ -218,7 +218,7 @@ test('@cross-tab orders refresh before logout and sends the newest cookie', asyn
       false,
     );
   }
-  await expectAuthenticated(refreshPage);
+  await expect(refreshPage.getByLabel('Email')).toBeVisible();
 });
 
 test('@cross-tab orders explicit login after a refresh and keeps the login state current', async ({
@@ -308,10 +308,18 @@ test('@cross-tab orders explicit login after a refresh and keeps the login state
   refreshCanSettle?.();
   await refreshNavigation;
   await Promise.all([expectAuthenticated(refreshPage), expectAuthenticated(loginPage)]);
+  await expect.poll(() => order.length).toBe(6);
 
-  expect(order).toEqual(['refresh-start', 'refresh-settle', 'login-start', 'login-settle']);
+  expect(order).toEqual([
+    'refresh-start',
+    'refresh-settle',
+    'login-start',
+    'login-settle',
+    'refresh-start',
+    'refresh-settle',
+  ]);
   expect((await context.cookies()).find((cookie) => cookie.name === refreshCookieName)?.value).toBe(
-    'explicit-login-cookie',
+    'login-refresh-cookie-1',
   );
 });
 

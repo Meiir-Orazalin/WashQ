@@ -66,15 +66,18 @@ sent. The supported-browser policy therefore requires verified Web Locks
 support.
 
 Separate tabs never share access tokens or public user state. They can retain
-different already-issued stateless access tokens until those tokens expire.
-The most recent successful explicit login owns the one persistent refresh
-cookie in the shared browser jar; it does not create independent persistent
-per-tab identities. A routine refresh follows that cookie identity but does not
-re-query `/me` in Version 1.2, so a different-account login can leave another
-tab's display stale until reload. This version has no protected business action;
-account-switch notification or revalidation is a prerequisite for those later
-routes. Cross-tab logout notification remains separate from this mutex
-decision.
+independent already-issued stateless access tokens, while the most recent
+successful explicit login owns the one persistent refresh cookie in the shared
+browser jar. Version 1.3.1 adds the separate notification decision in ADR 0012:
+receiving tabs clear old memory, take this same Web Lock through the existing
+refresh coordinator, and verify `/auth/me` before atomically committing their
+own token and user. Confirmed remote logout clears memory without taking the
+lock or sending another server request.
+
+BroadcastChannel remains separate from this mutex decision. It carries no
+credentials or identity and cannot replace lock ownership. Conversely, the
+lock carries no lifecycle state and cannot notify an already-open tab that the
+shared cookie identity changed.
 
 Lock waiting is not an authentication failure and has no retry loop. A network
 outcome that becomes indeterminate after request start retains the existing
