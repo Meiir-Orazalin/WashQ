@@ -101,15 +101,27 @@ before they are implemented.
 - Visibility recovery reuses the same coordinator and does not repeat an
   indeterminate refresh. Access tokens and refresh credentials remain absent
   from browser persistence, React Query, rendered output, and logs.
+- Frontend logout clears access-token, expiration, and user state immediately,
+  invalidates stale async operations, cancels scheduled work, waits for an
+  already-active same-document refresh, and only then sends the credentialed
+  idempotent logout request.
+- Unconfirmed logout never restores local credentials or retries automatically.
+  Manual retry calls logout directly without refresh; its warning does not
+  expose Origin, cookie, token, or server details.
 
 ## Explicit future boundaries
 
 Global authentication guards and authorization arrive in later Version 1
 slices and must default to denial for protected use cases. Global logout, rate
 limiting, audit logging, expanded CSRF controls, monitoring, and production
-hardening arrive in later versions when their flows exist. Cross-tab refresh
-coordination remains a final authentication-hardening topic; Version 1.2.7
-coordinates only one document and never shares access tokens between tabs.
+hardening arrive in later versions when their flows exist.
+
+Cross-tab refresh coordination is an unresolved release blocker. A live
+Version 1.2.8 two-tab review produced one successful and one rejected rotation;
+the rejected response cleared the replacement cookie and the next refresh
+failed. Same-document coordination remains correct, but Version 1.2 must not be
+released until a focused cross-tab cookie-operation mutex is designed and
+verified without sharing access tokens.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

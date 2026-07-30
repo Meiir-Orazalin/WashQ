@@ -22,13 +22,13 @@ export function useLoginMutation() {
   const mutation = useMutation({
     retry: false,
     mutationFn: async () => {
-      beginAuthentication();
+      const operationGeneration = beginAuthentication();
 
       try {
         let request = pendingRequest.current;
         pendingRequest.current = null;
         if (!request) {
-          failAuthentication();
+          failAuthentication(operationGeneration);
           throw new Error('The login request is unavailable');
         }
 
@@ -37,16 +37,21 @@ export function useLoginMutation() {
           login = await loginCustomer(request);
           request = null;
         } catch (error) {
-          failAuthentication();
+          failAuthentication(operationGeneration);
           throw error;
         }
 
         try {
-          stageAccessToken(login.accessToken, login.accessTokenExpiresAt);
+          if (
+            !stageAccessToken(login.accessToken, login.accessTokenExpiresAt, operationGeneration)
+          ) {
+            return;
+          }
+
           const currentUser = await getCurrentUser(login.accessToken);
-          completeAuthentication(currentUser.user);
+          completeAuthentication(currentUser.user, operationGeneration);
         } catch {
-          failAuthentication();
+          failAuthentication(operationGeneration);
           throw new SessionEstablishmentError();
         }
       } finally {

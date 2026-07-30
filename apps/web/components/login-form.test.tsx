@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiClientError } from '@/lib/api-client';
 import type { RefreshCoordinator } from '@/lib/refresh-coordinator';
@@ -66,6 +66,7 @@ function invalidSessionCoordinator(): RefreshCoordinator {
       .mockRejectedValue(
         new ApiClientError('Session refresh failed', 401, 'INVALID_REFRESH_SESSION'),
       ),
+    waitForIdle: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -73,13 +74,18 @@ function AuthenticationProbe() {
   const authentication = useAuthentication();
 
   return (
-    <output
-      data-testid="authentication-state"
-      data-status={authentication.status}
-      data-access-token={authentication.accessToken ? 'present' : 'absent'}
-      data-expiration={authentication.accessTokenExpiresAt ? 'present' : 'absent'}
-      data-user={authentication.currentUser?.email ?? 'absent'}
-    />
+    <>
+      <output
+        data-testid="authentication-state"
+        data-status={authentication.status}
+        data-access-token={authentication.accessToken ? 'present' : 'absent'}
+        data-expiration={authentication.accessTokenExpiresAt ? 'present' : 'absent'}
+        data-user={authentication.currentUser?.email ?? 'absent'}
+      />
+      <button type="button" onClick={() => void authentication.logout()}>
+        Test logout
+      </button>
+    </>
   );
 }
 
@@ -426,5 +432,57 @@ describe('LoginForm', () => {
       'unauthenticated',
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('prevents a stale explicit-login result from restoring state after logout', async () => {
+    let resolveLogin: ((response: Response) => void) | undefined;
+    const loginRequest = new Promise<Response>((resolve) => {
+      resolveLogin = resolve;
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/auth/login')) {
+        return loginRequest;
+      }
+      if (url.endsWith('/auth/logout')) {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected test request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await renderReadyForm();
+    fillValidForm();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-status',
+        'authenticating',
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Test logout' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-status',
+        'unauthenticated',
+      ),
+    );
+
+    await act(async () => {
+      resolveLogin?.(jsonResponse(loginResponse));
+      await loginRequest;
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Sign in' })).not.toBeDisabled());
+
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/auth/me'))).toBe(false);
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(document.body.innerHTML).not.toContain(accessToken);
   });
 });

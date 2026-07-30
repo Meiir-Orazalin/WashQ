@@ -40,7 +40,7 @@ responsible for protecting their credential context. `SameSite=Lax`, explicit
 credentialed CORS, and the Origin check are the current CSRF controls. A
 separate CSRF token is not added in Version 1.2.4.
 
-Web login and Version 1.2.7 restoration/refresh requests use
+Web login, restoration, refresh, and logout requests use
 `credentials: "include"` so the browser can accept or rotate this cookie.
 Frontend JavaScript neither reads nor writes it. Post-login and startup
 `/auth/me` verification explicitly omit credentials and authenticate with the
@@ -50,5 +50,12 @@ A page reload discards the prior access token, enters a neutral initialization
 state, and attempts one cookie rotation through the single-flight coordinator.
 Ambiguous rotation failures are not retried automatically because the server
 may have committed the one-time rotation even when the browser did not receive
-the response. Same-document callers share one request; separate tabs remain
-independent.
+the response. Same-document callers share one request. Frontend logout first
+clears memory and waits for that request to settle, then sends a bodyless
+credentialed logout so the newest cookie is revoked.
+
+Separate tabs remain independent. The Version 1.2.8 release review confirmed
+that simultaneous tab refreshes can produce one success and one invalid-session
+response whose cookie clearing removes the successful replacement. This is a
+release blocker, not a supported steady state; Version 1.2.9 must coordinate
+cookie-mutating auth operations across tabs before authentication is ready.

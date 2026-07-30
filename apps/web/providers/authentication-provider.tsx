@@ -17,14 +17,24 @@ import {
   isWithinRefreshWindow,
   requireFutureAccessTokenExpiration,
 } from '@/lib/access-token-expiration';
-import { ApiClientError, getCurrentUser } from '@/lib/api-client';
+import {
+  ApiClientError,
+  getCurrentUser,
+  logoutCurrentSession as requestLogoutCurrentSession,
+} from '@/lib/api-client';
 import {
   refreshCoordinator as defaultRefreshCoordinator,
   type RefreshCoordinator,
 } from '@/lib/refresh-coordinator';
 
 export type AuthenticationStatus =
-  'initializing' | 'unauthenticated' | 'authenticating' | 'authenticated' | 'error';
+  | 'initializing'
+  | 'unauthenticated'
+  | 'authenticating'
+  | 'authenticated'
+  | 'logging-out'
+  | 'logout-error'
+  | 'error';
 
 export interface AuthenticationState {
   accessToken: string | null;
@@ -34,11 +44,17 @@ export interface AuthenticationState {
 }
 
 interface AuthenticationContextValue extends AuthenticationState {
-  beginAuthentication(): void;
-  stageAccessToken(accessToken: string, accessTokenExpiresAt: string): void;
-  completeAuthentication(currentUser: LoginUser): void;
-  failAuthentication(): void;
+  beginAuthentication(): number;
+  stageAccessToken(
+    accessToken: string,
+    accessTokenExpiresAt: string,
+    operationGeneration: number,
+  ): boolean;
+  completeAuthentication(currentUser: LoginUser, operationGeneration: number): boolean;
+  failAuthentication(operationGeneration: number): void;
   continueUnauthenticated(): void;
+  logout(): Promise<void>;
+  continueAfterLogoutError(): void;
 }
 
 interface AuthenticationProviderProps {
@@ -72,49 +88,129 @@ export function AuthenticationProvider({
   const operationGenerationRef = useRef(0);
   const indeterminateTokenRef = useRef<string | null>(null);
   const activeProactiveRefreshRef = useRef<Promise<void> | null>(null);
+  const activeLogoutRef = useRef<Promise<void> | null>(null);
+  const logoutIntentRef = useRef(false);
   stateRef.current = state;
 
-  const clearAuthentication = useCallback((status: 'unauthenticated' | 'error') => {
-    operationGenerationRef.current += 1;
-    indeterminateTokenRef.current = null;
-    setRefreshScheduleMode('proactive');
-    setState({ ...emptyAuthenticationState, status });
-  }, []);
+  const clearAuthentication = useCallback(
+    (status: 'unauthenticated' | 'error' | 'logout-error') => {
+      operationGenerationRef.current += 1;
+      indeterminateTokenRef.current = null;
+      setRefreshScheduleMode('proactive');
+      setState({ ...emptyAuthenticationState, status });
+    },
+    [],
+  );
 
   const beginAuthentication = useCallback(() => {
     operationGenerationRef.current += 1;
+    const generation = operationGenerationRef.current;
+    logoutIntentRef.current = false;
     indeterminateTokenRef.current = null;
     setRefreshScheduleMode('proactive');
     setState({ ...emptyAuthenticationState, status: 'authenticating' });
+    return generation;
   }, []);
 
-  const stageAccessToken = useCallback((accessToken: string, accessTokenExpiresAt: string) => {
-    requireFutureAccessTokenExpiration(accessTokenExpiresAt);
-    indeterminateTokenRef.current = null;
-    setRefreshScheduleMode('proactive');
-    setState({
-      accessToken,
-      accessTokenExpiresAt,
-      currentUser: null,
-      status: 'authenticating',
-    });
-  }, []);
+  const stageAccessToken = useCallback(
+    (accessToken: string, accessTokenExpiresAt: string, operationGeneration: number) => {
+      requireFutureAccessTokenExpiration(accessTokenExpiresAt);
+      if (
+        !mountedRef.current ||
+        logoutIntentRef.current ||
+        operationGenerationRef.current !== operationGeneration
+      ) {
+        return false;
+      }
 
-  const completeAuthentication = useCallback((currentUser: LoginUser) => {
-    indeterminateTokenRef.current = null;
-    setRefreshScheduleMode('proactive');
-    setState((current) => ({
-      ...current,
-      currentUser,
-      status: 'authenticated',
-    }));
-  }, []);
+      indeterminateTokenRef.current = null;
+      setRefreshScheduleMode('proactive');
+      setState({
+        accessToken,
+        accessTokenExpiresAt,
+        currentUser: null,
+        status: 'authenticating',
+      });
+      return true;
+    },
+    [],
+  );
 
-  const failAuthentication = useCallback(() => {
-    clearAuthentication('error');
-  }, [clearAuthentication]);
+  const completeAuthentication = useCallback(
+    (currentUser: LoginUser, operationGeneration: number) => {
+      if (
+        !mountedRef.current ||
+        logoutIntentRef.current ||
+        operationGenerationRef.current !== operationGeneration
+      ) {
+        return false;
+      }
+
+      indeterminateTokenRef.current = null;
+      setRefreshScheduleMode('proactive');
+      setState((current) => ({
+        ...current,
+        currentUser,
+        status: 'authenticated',
+      }));
+      return true;
+    },
+    [],
+  );
+
+  const failAuthentication = useCallback(
+    (operationGeneration: number) => {
+      if (operationGenerationRef.current === operationGeneration && !logoutIntentRef.current) {
+        clearAuthentication('error');
+      }
+    },
+    [clearAuthentication],
+  );
 
   const continueUnauthenticated = useCallback(() => {
+    clearAuthentication('unauthenticated');
+  }, [clearAuthentication]);
+
+  const logout = useCallback((): Promise<void> => {
+    if (activeLogoutRef.current) {
+      return activeLogoutRef.current;
+    }
+
+    logoutIntentRef.current = true;
+    const generation = ++operationGenerationRef.current;
+    indeterminateTokenRef.current = null;
+    setRefreshScheduleMode('proactive');
+    setState({ ...emptyAuthenticationState, status: 'logging-out' });
+
+    const logoutOperation = (async () => {
+      await refreshCoordinator.waitForIdle();
+
+      try {
+        await requestLogoutCurrentSession();
+      } catch {
+        if (mountedRef.current && operationGenerationRef.current === generation) {
+          setState({ ...emptyAuthenticationState, status: 'logout-error' });
+        }
+        return;
+      }
+
+      if (mountedRef.current && operationGenerationRef.current === generation) {
+        setState({ ...emptyAuthenticationState, status: 'unauthenticated' });
+      }
+    })();
+
+    activeLogoutRef.current = logoutOperation;
+    void logoutOperation.finally(() => {
+      if (activeLogoutRef.current === logoutOperation) {
+        activeLogoutRef.current = null;
+      }
+    });
+
+    return logoutOperation;
+  }, [refreshCoordinator]);
+
+  const continueAfterLogoutError = useCallback(() => {
+    logoutIntentRef.current = true;
     clearAuthentication('unauthenticated');
   }, [clearAuthentication]);
 
@@ -190,6 +286,7 @@ export function AuthenticationProvider({
   const runProactiveRefresh = useCallback((): Promise<void> => {
     const snapshot = stateRef.current;
     if (
+      logoutIntentRef.current ||
       snapshot.status !== 'authenticated' ||
       !snapshot.accessToken ||
       !snapshot.accessTokenExpiresAt ||
@@ -314,6 +411,7 @@ export function AuthenticationProvider({
 
       const current = stateRef.current;
       if (
+        logoutIntentRef.current ||
         current.status !== 'authenticated' ||
         !current.accessToken ||
         !current.accessTokenExpiresAt
@@ -353,6 +451,8 @@ export function AuthenticationProvider({
       completeAuthentication,
       failAuthentication,
       continueUnauthenticated,
+      logout,
+      continueAfterLogoutError,
     }),
     [
       state,
@@ -361,6 +461,8 @@ export function AuthenticationProvider({
       completeAuthentication,
       failAuthentication,
       continueUnauthenticated,
+      logout,
+      continueAfterLogoutError,
     ],
   );
 

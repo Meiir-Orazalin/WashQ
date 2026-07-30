@@ -51,13 +51,18 @@ function currentUserResponse(status = 200) {
 }
 
 function renderProvider(
-  refreshCoordinator: RefreshCoordinator,
+  refreshCoordinator: Pick<RefreshCoordinator, 'refresh'> &
+    Partial<Pick<RefreshCoordinator, 'waitForIdle'>>,
   { strict = false, withLoginForm = false }: { strict?: boolean; withLoginForm?: boolean } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const coordinator: RefreshCoordinator = {
+    refresh: refreshCoordinator.refresh,
+    waitForIdle: refreshCoordinator.waitForIdle ?? vi.fn().mockResolvedValue(undefined),
+  };
   const content = (
     <QueryClientProvider client={client}>
-      <AuthenticationProvider refreshCoordinator={refreshCoordinator}>
+      <AuthenticationProvider refreshCoordinator={coordinator}>
         {withLoginForm ? <LoginForm /> : null}
         <AuthenticationProbe />
       </AuthenticationProvider>
@@ -82,15 +87,25 @@ function AuthenticationProbe() {
       <button
         type="button"
         onClick={() => {
-          authentication.beginAuthentication();
-          authentication.stageAccessToken('explicit-login-token', futureTimestamp(120_000));
-          authentication.completeAuthentication({
-            ...user,
-            firstName: 'Explicit',
-          });
+          const generation = authentication.beginAuthentication();
+          authentication.stageAccessToken(
+            'explicit-login-token',
+            futureTimestamp(120_000),
+            generation,
+          );
+          authentication.completeAuthentication(
+            {
+              ...user,
+              firstName: 'Explicit',
+            },
+            generation,
+          );
         }}
       >
         Complete explicit login
+      </button>
+      <button type="button" onClick={() => void authentication.logout()}>
+        Trigger logout
       </button>
     </>
   );
@@ -344,6 +359,7 @@ describe('AuthenticationProvider refresh scheduling and visibility', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    Reflect.deleteProperty(document, 'cookie');
   });
 
   async function renderAuthenticatedWithTimer(
@@ -492,5 +508,276 @@ describe('AuthenticationProvider refresh scheduling and visibility', () => {
 
     expect(vi.getTimerCount()).toBe(0);
     expect(removeListener).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
+  });
+});
+
+describe('AuthenticationProvider logout coordination', () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(document, 'cookie');
+  });
+
+  it('clears in-memory state immediately, cancels scheduling, and settles a 204 as unauthenticated', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    let resolveLogout: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveLogout = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const waitForIdle = vi.fn().mockResolvedValue(undefined);
+    const refresh = vi.fn().mockRejectedValue(invalidRefreshSession());
+    renderProvider({ refresh, waitForIdle }, { withLoginForm: true });
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await flushMicrotasks();
+    const timerCountBeforeLogout = vi.getTimerCount();
+    expect(timerCountBeforeLogout).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'logging-out',
+    );
+    expect(screen.getByRole('button', { name: 'Signing out…' })).toBeDisabled();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-expiration', 'absent');
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+    expect(vi.getTimerCount()).toBeLessThan(timerCountBeforeLogout);
+    expect(waitForIdle).toHaveBeenCalledTimes(1);
+
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolveLogout?.(new Response(null, { status: 204 }));
+    await flushMicrotasks();
+
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for an in-flight refresh and ignores its late token before logging out', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    let resolveRefresh: ((response: RefreshResponse) => void) | undefined;
+    const requestRefresh = vi
+      .fn<() => Promise<RefreshResponse>>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockImplementationOnce(
+        () =>
+          new Promise<RefreshResponse>((resolve) => {
+            resolveRefresh = resolve;
+          }),
+      );
+    const coordinator = createRefreshCoordinator(requestRefresh);
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderProvider(coordinator);
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(requestRefresh).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger logout' }));
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'logging-out',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+    fireEvent(document, new Event('visibilitychange'));
+    expect(requestRefresh).toHaveBeenCalledTimes(2);
+
+    resolveRefresh?.(refreshResponse('late-rotated-token', 180_000));
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/auth\/logout$/);
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(document.body.innerHTML).not.toContain('late-rotated-token');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([
+    [403, 'ORIGIN_NOT_ALLOWED'],
+    [500, 'INTERNAL_SERVER_ERROR'],
+  ])(
+    'keeps local state cleared after HTTP %i and succeeds only after a manual retry',
+    async (status, code) => {
+      const failure = new Response(
+        JSON.stringify({
+          error: { code, message: 'Sanitized API error' },
+          timestamp: new Date().toISOString(),
+          path: '/api/v1/auth/logout',
+          requestId: 'request-id',
+        }),
+        { status, headers: { 'Content-Type': 'application/json' } },
+      );
+      const fetchMock = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(failure)
+        .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      vi.stubGlobal('fetch', fetchMock);
+      const refresh = vi.fn().mockRejectedValue(invalidRefreshSession());
+      renderProvider({ refresh }, { withLoginForm: true });
+      await screen.findByLabelText('Email');
+      fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+      expect(
+        await screen.findByText(
+          'We cleared this page’s session, but could not confirm sign-out with the server. Please retry before leaving this device.',
+        ),
+      ).toBeVisible();
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-status',
+        'logout-error',
+      );
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-access-token',
+        'absent',
+      );
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Retry sign out' }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+          'data-status',
+          'unauthenticated',
+        ),
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('Email')).toBeVisible();
+    },
+  );
+
+  it('keeps memory clear after a network failure and does not retry automatically', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('offline'));
+    vi.stubGlobal('fetch', fetchMock);
+    const refresh = vi.fn().mockRejectedValue(invalidRefreshSession());
+    renderProvider({ refresh }, { withLoginForm: true });
+    await screen.findByLabelText('Email');
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(await screen.findByRole('heading', { name: 'Please retry sign-out' })).toBeVisible();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not duplicate a pending logout request', async () => {
+    let resolveLogout: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveLogout = resolve;
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    renderProvider({ refresh: vi.fn().mockRejectedValue(invalidRefreshSession()) });
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger logout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger logout' }));
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolveLogout?.(new Response(null, { status: 204 }));
+    await flushMicrotasks();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+  });
+
+  it('does not let a pending restoration or its /me lookup restore state after logout intent', async () => {
+    let resolveRefresh: ((response: RefreshResponse) => void) | undefined;
+    const coordinator = createRefreshCoordinator(
+      () =>
+        new Promise<RefreshResponse>((resolve) => {
+          resolveRefresh = resolve;
+        }),
+    );
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderProvider(coordinator);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger logout' }));
+    resolveRefresh?.(refreshResponse('stale-restoration-token'));
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/auth\/logout$/);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/auth/me'))).toBe(false);
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(document.body.innerHTML).not.toContain('stale-restoration-token');
+  });
+
+  it('does not persist, render, broadcast, or read credentials while logging out', async () => {
+    const storageWrite = vi.spyOn(Storage.prototype, 'setItem');
+    const cookieRead = vi.fn(() => '');
+    const cookieWrite = vi.fn();
+    Object.defineProperty(document, 'cookie', {
+      configurable: true,
+      get: cookieRead,
+      set: cookieWrite,
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    renderProvider(
+      { refresh: vi.fn().mockRejectedValue(invalidRefreshSession()) },
+      { withLoginForm: true },
+    );
+    await screen.findByLabelText('Email');
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await screen.findByRole('heading', { name: 'You are signed in' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    await screen.findByLabelText('Email');
+
+    expect(storageWrite).not.toHaveBeenCalled();
+    expect(cookieRead).not.toHaveBeenCalled();
+    expect(cookieWrite).not.toHaveBeenCalled();
+    expect(document.body.innerHTML).not.toContain('explicit-login-token');
   });
 });

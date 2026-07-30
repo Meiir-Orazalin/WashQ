@@ -76,6 +76,20 @@ desktop/mobile Playwright login flow reloads the page, asserts one refresh
 followed by `/me`, and verifies the rotated cookie remains HttpOnly while access
 tokens remain absent from script-visible persistence.
 
+Version 1.2.8 adds client tests for bodyless credentialed logout and empty 204
+handling, coordinator idle-barrier tests, and provider tests for immediate
+memory clearing, timer cancellation, refresh/logout ordering, stale
+restoration/login/refresh suppression, duplicate-submit prevention, explicit
+retry, and safe 403/500 handling. Desktop and mobile Playwright scenarios cover
+standard logout, reload after cookie clearing, logout during a controlled
+refresh, and unconfirmed logout retry.
+
+The final release review also uses the built API, built web application, and
+real PostgreSQL. The deliberate two-tab refresh stress test is not replaced by
+mocked browser coverage. Its observed `401`/`200` split, cleared replacement
+cookie, failed follow-up refresh, and zero-active-session family are recorded as
+a Version 1.2 release blocker.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

@@ -51,3 +51,13 @@ Same-document callers share one in-flight Promise. Ambiguous rotation outcomes
 are not retried automatically, and coordination does not cross tab boundaries.
 Frontend features receive authentication through the provider rather than a
 transport-global or persisted token.
+
+Frontend logout clears provider memory before server confirmation, invalidates
+stale operation generations, and waits for active same-document rotation before
+calling the cookie-authenticated logout endpoint. A failed confirmation never
+restores the old token.
+
+The Version 1.2.8 release review demonstrated that simultaneous cross-tab
+rotations can still invalidate the shared cookie and family. This does not
+change the memory-only decision: the follow-up must coordinate only the
+cookie-mutating operation and must not broadcast or persist access tokens.

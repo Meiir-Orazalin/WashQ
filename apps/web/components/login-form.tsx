@@ -85,7 +85,58 @@ export function LoginForm() {
         </p>
         <p className="authenticated-email">{authentication.currentUser.email}</p>
         <p>Full customer dashboard functionality will be added in a later version.</p>
-        <Link href="/">Return to the public home page</Link>
+        <div className="authentication-actions">
+          <button
+            className="submit-button"
+            type="button"
+            onClick={() => void authentication.logout()}
+          >
+            Sign out
+          </button>
+          <Link href="/">Return to the public home page</Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (authentication.status === 'logging-out') {
+    return (
+      <section className="session-status" role="status" aria-live="polite" aria-busy="true">
+        <p className="eyebrow">Signing out</p>
+        <h2>Clearing your session…</h2>
+        <p>Please wait while we confirm sign-out with the server.</p>
+        <button className="submit-button" type="button" disabled>
+          Signing out…
+        </button>
+      </section>
+    );
+  }
+
+  if (authentication.status === 'logout-error') {
+    return (
+      <section className="session-status session-status--error" role="alert">
+        <p className="eyebrow">Sign-out not confirmed</p>
+        <h2>Please retry sign-out</h2>
+        <p>
+          We cleared this page’s session, but could not confirm sign-out with the server. Please
+          retry before leaving this device.
+        </p>
+        <div className="authentication-actions">
+          <button
+            className="submit-button"
+            type="button"
+            onClick={() => void authentication.logout()}
+          >
+            Retry sign out
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={authentication.continueAfterLogoutError}
+          >
+            Continue to sign in
+          </button>
+        </div>
       </section>
     );
   }

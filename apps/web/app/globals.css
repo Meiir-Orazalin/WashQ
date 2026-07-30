@@ -361,6 +361,23 @@ footer {
   width: fit-content;
 }
 
+.authentication-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.secondary-button {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 12px 18px;
+  color: var(--text);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .session-status--error {
   border-left: 3px solid var(--error);
   padding-left: 16px;
