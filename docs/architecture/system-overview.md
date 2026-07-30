@@ -28,9 +28,11 @@ ports, cryptographic adapters, and refresh-session persistence. Versions 1.2.2
 through 1.2.4 add backend login, cookie-backed refresh rotation,
 family-scoped replay detection, and idempotent current-session logout.
 Version 1.2.5 adds the Bearer-authenticated backend current-user endpoint.
-Version 1.2.6 adds the frontend login route and page-lifetime memory-only
-authentication provider. Automatic restoration, global guards, vehicles, and
-organization capabilities do not exist.
+Version 1.2.6 adds the frontend login route and memory-only authentication
+provider. Version 1.2.7 adds startup restoration plus proactive,
+visibility-aware refresh coordinated within one browser document. Frontend
+logout, cross-tab coordination, global guards, vehicles, and organization
+capabilities do not exist.
 
 ## Runtime boundaries
 

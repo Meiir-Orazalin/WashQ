@@ -346,10 +346,24 @@ footer {
 }
 
 .registration-success p:not(.eyebrow),
-.authentication-success p:not(.eyebrow) {
+.authentication-success p:not(.eyebrow),
+.session-status p:not(.eyebrow) {
   margin: 12px 0 22px;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.session-status {
+  min-height: 176px;
+}
+
+.session-status .submit-button {
+  width: fit-content;
+}
+
+.session-status--error {
+  border-left: 3px solid var(--error);
+  padding-left: 16px;
 }
 
 .authentication-success .authenticated-email {

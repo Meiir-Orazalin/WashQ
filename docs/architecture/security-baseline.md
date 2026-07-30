@@ -88,16 +88,28 @@ before they are implemented.
 - Post-login identity is verified through `/auth/me` with an explicitly supplied
   Bearer token and no cookie credentials. Failure clears all staged
   authentication data and does not trigger refresh.
-- Reloading the page loses frontend authentication state by design in Version
-  1.2.6. The retained HttpOnly cookie is not used until the separately reviewed
-  Version 1.2.7 restoration flow.
+- Startup session restoration rotates the HttpOnly cookie once through a
+  same-document single-flight coordinator and verifies current user data with
+  the new memory-only Bearer token.
+- React Strict Mode subscribers share the in-flight rotation; unmounted or
+  stale restoration work cannot overwrite a newer explicit login.
+- Proactive refresh uses the server-provided expiration timestamp, one timeout,
+  and a 60-second safety window. Browser code does not decode JWTs.
+- Invalid refresh state clears frontend memory without retry. Ambiguous
+  rotation failures are never retried automatically; a still-valid access token
+  is retained only until its known expiration.
+- Visibility recovery reuses the same coordinator and does not repeat an
+  indeterminate refresh. Access tokens and refresh credentials remain absent
+  from browser persistence, React Query, rendered output, and logs.
 
 ## Explicit future boundaries
 
 Global authentication guards and authorization arrive in later Version 1
 slices and must default to denial for protected use cases. Global logout, rate
 limiting, audit logging, expanded CSRF controls, monitoring, and production
-hardening arrive in later versions when their flows exist.
+hardening arrive in later versions when their flows exist. Cross-tab refresh
+coordination remains a final authentication-hardening topic; Version 1.2.7
+coordinates only one document and never shares access tokens between tabs.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

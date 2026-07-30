@@ -6,8 +6,9 @@ session issuance. Version 1.2.3 adds one-time refresh-token rotation and
 family-scoped replay detection. Version 1.2.4 adds idempotent logout of the
 current refresh session. Version 1.2.5 adds access-token authentication for the
 current-user endpoint. Version 1.2.6 adds the initial frontend login flow and
-page-lifetime in-memory authentication state. Automatic restoration, automatic
-refresh, global guards, and protected business endpoints remain absent.
+memory-only authentication state. Version 1.2.7 adds controlled startup
+restoration and same-document proactive refresh. Global guards, protected
+business endpoints, frontend logout, and cross-tab coordination remain absent.
 
 ## Boundaries
 
@@ -192,8 +193,7 @@ login form
 ```
 
 The root authentication provider stores only the access token, its expiration
-timestamp, the current public user, and the authentication status. It is created
-fresh on every page load and performs no startup network request. The mutation
+timestamp, the current public user, and the authentication status. The mutation
 has no variables or result data, so neither the password nor access token enters
 the TanStack Query cache. The password remains local to the form and is cleared
 after an API failure or successful authentication.
@@ -207,10 +207,43 @@ If verification fails, the token, expiration, and user are cleared and no
 refresh attempt occurs.
 
 Access tokens are never persisted to Web Storage, IndexedDB, cookies, URLs,
-React Query data, or rendered markup. Reloading the page therefore returns to
-the unauthenticated login form while the inaccessible refresh cookie may remain
-in the browser. Automatic session restoration belongs to Version 1.2.7. See
+React Query data, or rendered markup. See
 [ADR 0010](../decisions/0010-memory-only-browser-access-tokens.md).
+
+## Frontend restoration and refresh
+
+On the first client mount, the provider begins in `initializing` and renders a
+neutral status instead of the login form. It asks one non-React coordinator to
+rotate the HttpOnly cookie through `POST /auth/refresh`, stages the validated
+access token only in provider memory, and verifies the current PostgreSQL user
+through credential-omitting `GET /auth/me`. Only both successes transition to
+`authenticated`.
+
+The coordinator retains only the active Promise and gives concurrent callers
+that same Promise. It clears the reference after settlement. This prevents
+Strict Mode effect replay, a timer, a visibility event, and multiple consumers
+within one JavaScript realm from issuing parallel rotations. Effect
+subscriptions and operation generations prevent unmounted or stale restoration
+results from overwriting a newer explicit login.
+
+The provider schedules one timeout from the server-provided
+`accessTokenExpiresAt`, normally 60 seconds before expiration. It never decodes
+the JWT. A successful routine refresh replaces only the in-memory token and
+expiration, retains the verified user, and schedules the next timeout without
+calling `/me`. When a hidden document becomes visible, it refreshes only if the
+token is within that safety window and no prior outcome is indeterminate.
+
+`401 INVALID_REFRESH_SESSION` clears memory and becomes `unauthenticated`.
+Startup Origin, network, server, JSON, or contract failures become a
+user-recoverable `error` without retry. After an indeterminate proactive
+failure, the still-valid token and user remain usable until that token expires;
+the provider suppresses further automatic rotation attempts for that token and
+then clears memory into `error`. This avoids blindly replaying a rotation that
+may have committed server-side.
+
+Coordination is intentionally limited to one document/JavaScript realm.
+Version 1.2.7 does not share access tokens or rotation locks across tabs and
+does not add global request interception, route protection, or frontend logout.
 
 ## Configuration
 

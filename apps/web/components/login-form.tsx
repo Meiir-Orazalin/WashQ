@@ -19,6 +19,7 @@ export function LoginForm() {
   const [values, setValues] = useState(initialValues);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [explicitLoginStarted, setExplicitLoginStarted] = useState(false);
   const formError = useRef<HTMLParagraphElement>(null);
   const authentication = useAuthentication();
   const login = useLoginMutation();
@@ -33,6 +34,7 @@ export function LoginForm() {
   useEffect(() => {
     if (authentication.status === 'authenticated') {
       setValues((current) => ({ ...current, password: '' }));
+      setExplicitLoginStarted(false);
     }
   }, [authentication.status]);
 
@@ -50,12 +52,23 @@ export function LoginForm() {
     }
 
     setFieldErrors({});
+    setExplicitLoginStarted(true);
     login.authenticate(parsed.data);
   }
 
   function updateField(field: LoginField, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  if (authentication.status === 'initializing') {
+    return (
+      <section className="session-status" role="status" aria-live="polite" aria-busy="true">
+        <p className="eyebrow">Session check</p>
+        <h2>Restoring your session…</h2>
+        <p>Please wait while we securely check your existing browser session.</p>
+      </section>
+    );
   }
 
   if (authentication.status === 'authenticated' && authentication.currentUser) {
@@ -73,6 +86,28 @@ export function LoginForm() {
         <p className="authenticated-email">{authentication.currentUser.email}</p>
         <p>Full customer dashboard functionality will be added in a later version.</p>
         <Link href="/">Return to the public home page</Link>
+      </section>
+    );
+  }
+
+  if (
+    authentication.status === 'error' &&
+    !explicitLoginStarted &&
+    !login.isPending &&
+    !login.isError
+  ) {
+    return (
+      <section className="session-status session-status--error" role="alert">
+        <p className="eyebrow">Session unavailable</p>
+        <h2>We could not restore your session</h2>
+        <p>We could not restore your session. You can continue by signing in again.</p>
+        <button
+          className="submit-button"
+          type="button"
+          onClick={authentication.continueUnauthenticated}
+        >
+          Continue to sign in
+        </button>
       </section>
     );
   }

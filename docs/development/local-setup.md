@@ -236,7 +236,7 @@ test suite.
 Inspect API logs for accidental Authorization, token, password, or signing
 secret output. Delete the temporary fixture and directory when finished.
 
-## Manual frontend login check
+## Manual frontend login and restoration check
 
 Start PostgreSQL, the API, and the web application:
 
@@ -259,12 +259,21 @@ developer tools:
 3. Confirm localStorage, application-owned sessionStorage, IndexedDB, cookies
    accessible through JavaScript, page markup, and the URL contain no access
    token or password.
-4. Reload `/login` and confirm the form returns without a refresh or `/auth/me`
-   request. The HttpOnly cookie may remain; automatic restoration is Version
-   1.2.7.
-5. Submit a wrong password and confirm the page shows only `Email or password is
+4. Reload `/login` and confirm the neutral `Restoring your session…` state
+   appears without flashing the form. Confirm the request order is one
+   `POST /auth/refresh`, then one credential-omitting `GET /auth/me`.
+5. Confirm the authenticated user returns, the HttpOnly cookie value rotated,
+   and access-token data remains absent from Web Storage, IndexedDB, the URL,
+   cookies visible to JavaScript, React Query, and page markup.
+6. Rapidly hide/show the tab near expiration and confirm no parallel refresh
+   requests are created. Simulate a refresh network/server failure and confirm
+   there is no automatic retry loop.
+7. Invalidate the refresh session, reload, and confirm initialization settles
+   to the login form after one 401 without calling `/auth/me`.
+8. Submit a wrong password and confirm the page shows only `Email or password is
 incorrect.`
 
 Inspect the browser console, API output, and web output for token or password
 leakage. Delete the temporary user so its refresh session is removed by the
-existing database cascade.
+existing database cascade. Same-document refreshes are coordinated; simultaneous
+multi-tab restoration remains outside Version 1.2.7.

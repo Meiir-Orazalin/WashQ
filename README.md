@@ -9,9 +9,10 @@ cookie-backed refresh-session issuance. Version 1.2.3 adds one-time
 refresh-token rotation and family-scoped replay detection. Version 1.2.4 adds
 backend logout of the current refresh session. Version 1.2.5 adds the
 Bearer-authenticated backend current-user endpoint. Version 1.2.6 adds frontend
-login with page-lifetime, memory-only authentication state. Automatic session
-restoration, vehicles, organizations, and later product functionality are not
-implemented.
+login with memory-only authentication state. Version 1.2.7 adds controlled
+startup restoration and same-document proactive refresh without persistent
+token storage. Frontend logout, cross-tab coordination, vehicles,
+organizations, and later product functionality are not implemented.
 
 ## Repository
 
@@ -69,7 +70,9 @@ access token and returns current public user values without consulting refresh
 sessions.
 Version 1.2.6 adds `http://localhost:3000/login`; it validates through shared
 contracts, accepts the HttpOnly refresh cookie, verifies `/auth/me`, and keeps
-the access token only in React memory until page reload.
+the access token only in React memory. Version 1.2.7 restores after reload by
+rotating that cookie once, verifying `/auth/me`, and scheduling same-document
+refresh from the server-provided expiration.
 
 ## Quality
 
