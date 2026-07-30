@@ -270,10 +270,33 @@ developer tools:
    there is no automatic retry loop.
 7. Invalidate the refresh session, reload, and confirm initialization settles
    to the login form after one 401 without calling `/auth/me`.
-8. Submit a wrong password and confirm the page shows only `Email or password is
-incorrect.`
+8. Submit a wrong password and confirm the page shows only
+   `Email or password is incorrect.`
+9. Sign in again, select `Sign out`, and confirm the access token, expiration,
+   and user disappear immediately. Confirm one bodyless credentialed
+   `POST /auth/logout` follows any already-active refresh, returns 204, and
+   clears the HttpOnly cookie.
+10. Reload and confirm one startup refresh settles to the login form without
+    `/auth/me` or a loop. Simulate a logout 500 or network failure, confirm the
+    unconfirmed-sign-out warning appears with local state still clear, and
+    confirm only a manual retry calls logout again.
 
 Inspect the browser console, API output, and web output for token or password
 leakage. Delete the temporary user so its refresh session is removed by the
-existing database cascade. Same-document refreshes are coordinated; simultaneous
-multi-tab restoration remains outside Version 1.2.7.
+existing database cascade.
+
+## Two-tab authentication release review
+
+Use one browser context so two tabs share `washqueue_refresh`. After both tabs
+are authenticated, trigger startup restoration or direct refresh concurrently
+and record only response statuses, cookie presence/attributes, UI state, and
+hash-free family counts. Never print token or cookie values. Then issue one
+follow-up refresh to prove the cookie remains usable.
+
+The Version 1.2.8 Chromium stress review observed `[401, 200]` on its first
+deliberately concurrent cycle. The browser then had no refresh cookie, the
+follow-up returned 401, and PostgreSQL reported zero active sessions in that
+family. This is the current expected release-review finding, not acceptable
+production behavior. Version 1.2 remains not ready until Version 1.2.9 adds and
+verifies cross-tab serialization of refresh/logout cookie mutations across the
+supported browser set.

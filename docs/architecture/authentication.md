@@ -7,8 +7,11 @@ family-scoped replay detection. Version 1.2.4 adds idempotent logout of the
 current refresh session. Version 1.2.5 adds access-token authentication for the
 current-user endpoint. Version 1.2.6 adds the initial frontend login flow and
 memory-only authentication state. Version 1.2.7 adds controlled startup
-restoration and same-document proactive refresh. Global guards, protected
-business endpoints, frontend logout, and cross-tab coordination remain absent.
+restoration and same-document proactive refresh. Version 1.2.8 adds coordinated
+frontend logout and performs the final authentication release review. Global
+guards and protected business endpoints remain absent. The release review found
+that refresh coordination still does not cross browser tabs and can invalidate
+an otherwise usable shared cookie, so Version 1.2 remains not ready.
 
 ## Boundaries
 
@@ -241,9 +244,56 @@ the provider suppresses further automatic rotation attempts for that token and
 then clears memory into `error`. This avoids blindly replaying a rotation that
 may have committed server-side.
 
-Coordination is intentionally limited to one document/JavaScript realm.
-Version 1.2.7 does not share access tokens or rotation locks across tabs and
-does not add global request interception, route protection, or frontend logout.
+Coordination is intentionally limited to one document/JavaScript realm. It does
+not share access tokens or rotation locks across tabs and does not add global
+request interception or route protection.
+
+## Frontend logout
+
+The authenticated confirmation UI exposes one native sign-out button. The
+provider owns logout coordination:
+
+```text
+logout intent and operation-generation invalidation
+  -> immediate access-token, expiration, and user removal
+  -> proactive timer cancellation and visibility-refresh suppression
+  -> await any same-document refresh Promise
+  -> bodyless credentialed POST /auth/logout
+  -> unauthenticated state after 204
+```
+
+Waiting for the existing refresh lets the browser apply its replacement cookie
+before logout sends the current cookie. The provider ignores the refresh result,
+and generation checks prevent stale restoration, login, or proactive-refresh
+work from rebuilding authenticated state. Logout never calls `/auth/me` or
+starts another refresh.
+
+The final statuses are `initializing`, `unauthenticated`, `authenticating`,
+`authenticated`, `logging-out`, `logout-error`, and `error`. `logout-error`
+means browser memory is already clear but server revocation could not be
+confirmed. Origin, network, server, and invalid-response failures are not
+retried automatically. The user can retry the idempotent logout directly, or
+continue to a clean login form with an explicit warning that reloading before a
+successful retry may restore the still-cookie-backed session.
+
+No cross-tab logout event is broadcast. Another open tab keeps its existing
+memory-only access token until expiration and remains subject to the stateless
+access-token semantics described above. Because the browser cookie is shared,
+its next refresh fails after successful server logout and clears that tab.
+
+## Cross-tab release finding
+
+The Version 1.2.8 live Chromium review deliberately issued refreshes from two
+tabs sharing one cookie. One stress cycle returned `401` and `200`; the invalid
+response cleared the newer cookie, the next refresh returned `401`, and the
+affected PostgreSQL family had no active session. Depending on request timing,
+the predecessor can also be classified as replay and family-revoked.
+
+Same-document single flight therefore does not make simultaneous multi-tab
+rotation safe. Version 1.2 must remain not ready until a focused follow-up
+serializes cookie-mutating refresh and logout operations across tabs with a
+browser-native mechanism, without sharing or persisting access tokens, and
+proves the behavior across supported browsers.
 
 ## Configuration
 

@@ -30,9 +30,11 @@ family-scoped replay detection, and idempotent current-session logout.
 Version 1.2.5 adds the Bearer-authenticated backend current-user endpoint.
 Version 1.2.6 adds the frontend login route and memory-only authentication
 provider. Version 1.2.7 adds startup restoration plus proactive,
-visibility-aware refresh coordinated within one browser document. Frontend
-logout, cross-tab coordination, global guards, vehicles, and organization
-capabilities do not exist.
+visibility-aware refresh coordinated within one browser document. Version 1.2.8
+adds frontend current-session logout with refresh/logout ordering. Cross-tab
+refresh coordination, global guards, vehicles, and organization capabilities do
+not exist. The final two-tab review found a cookie-rotation race, so Version 1.2
+remains not ready pending a focused hardening slice.
 
 ## Runtime boundaries
 

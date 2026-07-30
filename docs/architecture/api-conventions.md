@@ -168,6 +168,8 @@ The central web API client:
 - sends `POST /auth/login` with `credentials: "include"`;
 - sends bodyless `POST /auth/refresh` with `credentials: "include"` and no
   Authorization header;
+- sends bodyless `POST /auth/logout` with `credentials: "include"`, no
+  Authorization header, and accepts an empty 204 without JSON parsing;
 - parses refresh success through the shared refresh-response contract;
 - parses login success through the shared login-response contract;
 - sends `GET /auth/me` only with an explicitly supplied in-memory Bearer token
@@ -179,9 +181,11 @@ The central web API client:
   retry requests, or log request credentials.
 
 The non-React refresh coordinator calls this narrow client method and shares
-only an active Promise within one JavaScript realm. Authentication tokens remain
-owned by the provider, not the client or TanStack Query. No global interceptor
-or arbitrary 401 retry exists.
+only an active Promise within one JavaScript realm. It also exposes a narrow
+idle barrier so frontend logout can wait for an already-committing rotation
+without becoming a token store. Authentication tokens remain owned by the
+provider, not the client or TanStack Query. No global interceptor or arbitrary
+401 retry exists.
 
 ## Errors
 

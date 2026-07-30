@@ -51,4 +51,48 @@ describe('refresh coordinator', () => {
     expect(request).toHaveBeenCalledTimes(2);
     expect(String(firstError)).not.toContain(response.accessToken);
   });
+
+  it('waits for the current refresh to settle without starting or exposing another request', async () => {
+    let resolveRequest: ((value: RefreshResponse) => void) | undefined;
+    const request = vi.fn(
+      () =>
+        new Promise<RefreshResponse>((resolve) => {
+          resolveRequest = resolve;
+        }),
+    );
+    const coordinator = createRefreshCoordinator(request);
+    const refresh = coordinator.refresh();
+    let idle = false;
+    const waiting = coordinator.waitForIdle().then(() => {
+      idle = true;
+    });
+
+    await Promise.resolve();
+    expect(idle).toBe(false);
+    expect(request).toHaveBeenCalledTimes(1);
+
+    resolveRequest?.(response);
+    await refresh;
+    await waiting;
+
+    expect(idle).toBe(true);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves the idle barrier after a refresh failure', async () => {
+    let rejectRequest: ((reason: Error) => void) | undefined;
+    const coordinator = createRefreshCoordinator(
+      () =>
+        new Promise<RefreshResponse>((_resolve, reject) => {
+          rejectRequest = reject;
+        }),
+    );
+    const refresh = coordinator.refresh();
+    const waiting = coordinator.waitForIdle();
+
+    rejectRequest?.(new Error('sanitized refresh failure'));
+
+    await expect(refresh).rejects.toThrow('sanitized refresh failure');
+    await expect(waiting).resolves.toBeUndefined();
+  });
 });

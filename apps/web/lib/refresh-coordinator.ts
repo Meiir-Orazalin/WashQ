@@ -3,6 +3,7 @@ import { refreshSession } from './api-client';
 
 export interface RefreshCoordinator {
   refresh(): Promise<RefreshResponse>;
+  waitForIdle(): Promise<void>;
 }
 
 export function createRefreshCoordinator(
@@ -25,6 +26,18 @@ export function createRefreshCoordinator(
       inFlight = trackedRequest;
 
       return trackedRequest;
+    },
+    async waitForIdle() {
+      const activeRequest = inFlight;
+      if (!activeRequest) {
+        return;
+      }
+
+      try {
+        await activeRequest;
+      } catch {
+        // Logout only needs the cookie rotation attempt to settle before continuing.
+      }
     },
   };
 }

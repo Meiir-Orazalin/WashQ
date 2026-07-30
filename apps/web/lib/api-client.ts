@@ -143,6 +143,28 @@ export async function refreshSession(): Promise<RefreshResponse> {
   return parsed.data;
 }
 
+export async function logoutCurrentSession(): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${publicEnvironment.NEXT_PUBLIC_API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+  } catch {
+    throw new ApiClientError('The logout request could not be completed');
+  }
+
+  if (response.status === 204) {
+    return;
+  }
+
+  const payload = await readJson(response, 'The API returned an invalid logout response');
+  throw toApiClientError(payload, response.status, 'Logout failed');
+}
+
 export async function fetchApiHealth(signal?: AbortSignal): Promise<HealthResponse> {
   const response = await fetch(`${publicEnvironment.NEXT_PUBLIC_API_BASE_URL}/health`, {
     cache: 'no-store',

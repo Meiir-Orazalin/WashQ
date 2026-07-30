@@ -20,10 +20,17 @@ Status: in progress.
   - [x] Version 1.2.6 — Frontend login and in-memory authentication state.
   - [x] Version 1.2.7 — Controlled frontend session restoration and
         same-document refresh coordination.
+  - [x] Version 1.2.8 — Frontend logout and final authentication hardening
+        review.
+  - [ ] Version 1.2.9 — Cross-tab refresh/logout cookie-operation coordination
+        and supported-browser verification.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
-Completing Version 1.2.7 does not complete Version 1.2 or Version 1.
+Version 1.2.8 logout is complete, but its release review confirmed a cross-tab
+refresh race that can clear a successful replacement cookie and revoke the
+shared family. Version 1.2 and Version 1 remain incomplete until Version 1.2.9
+closes that release blocker.
 
 ## Version 2 — Business onboarding
 
