@@ -3,6 +3,10 @@
 import { useMutation } from '@tanstack/react-query';
 import type { LoginRequest } from '@washqueue/contracts';
 import { useRef } from 'react';
+import {
+  AuthCoordinationUnavailableError,
+  authCookieMutationLock,
+} from '@/lib/auth-cookie-mutation-lock';
 import { getCurrentUser, loginCustomer } from '@/lib/api-client';
 import { useAuthentication } from '@/providers/authentication-provider';
 
@@ -34,10 +38,14 @@ export function useLoginMutation() {
 
         let login;
         try {
-          login = await loginCustomer(request);
+          const loginRequest = request;
+          login = await authCookieMutationLock.runExclusive(() => loginCustomer(loginRequest));
           request = null;
         } catch (error) {
-          failAuthentication(operationGeneration);
+          failAuthentication(
+            operationGeneration,
+            error instanceof AuthCoordinationUnavailableError ? 'coordination-error' : 'error',
+          );
           throw error;
         }
 

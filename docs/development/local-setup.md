@@ -288,15 +288,25 @@ existing database cascade.
 ## Two-tab authentication release review
 
 Use one browser context so two tabs share `washqueue_refresh`. After both tabs
-are authenticated, trigger startup restoration or direct refresh concurrently
-and record only response statuses, cookie presence/attributes, UI state, and
-hash-free family counts. Never print token or cookie values. Then issue one
-follow-up refresh to prove the cookie remains usable.
+are authenticated, use one `BrowserContext` and begin restoration in both pages
+as close together as possible. In developer tools, verify the second
+`POST /auth/refresh` starts only after the first settles and uses the replacement
+cookie. Repeat at least five cycles and record only response statuses, cookie
+presence/attributes, UI state, maximum request concurrency, and hash-free family
+counts. Never print token, cookie, or hash values.
 
-The Version 1.2.8 Chromium stress review observed `[401, 200]` on its first
-deliberately concurrent cycle. The browser then had no refresh cookie, the
-follow-up returned 401, and PostgreSQL reported zero active sessions in that
-family. This is the current expected release-review finding, not acceptable
-production behavior. Version 1.2 remains not ready until Version 1.2.9 adds and
-verifies cross-tab serialization of refresh/logout cookie mutations across the
-supported browser set.
+Confirm both pages call `/auth/me`, every rotation returns 200, one final cookie
+remains usable, and PostgreSQL contains exactly one active replacement in the
+family. Repeat near access-token expiration. Then delay refresh in one tab and
+sign out in the other; logout must wait, use the newest cookie, and leave no
+active current session. Also verify explicit login waits behind refresh/logout
+and that the latest login becomes the shared cookie-backed identity.
+
+Run the matrix in desktop Chromium and the pinned desktop WebKit engine. Keep
+mobile Chrome login/restoration/logout regression coverage. Temporarily remove
+`navigator.locks` in a test page and confirm the generic coordination warning
+appears and no login, refresh, or logout transport starts.
+
+The Version 1.2.8 `[401, 200]`, cleared-cookie, and zero-active-family sequence
+is the failing baseline. It must not recur. Other tabs retain already-issued
+memory-only access tokens until expiration; access tokens are never shared.

@@ -116,12 +116,17 @@ slices and must default to denial for protected use cases. Global logout, rate
 limiting, audit logging, expanded CSRF controls, monitoring, and production
 hardening arrive in later versions when their flows exist.
 
-Cross-tab refresh coordination is an unresolved release blocker. A live
-Version 1.2.8 two-tab review produced one successful and one rejected rotation;
-the rejected response cleared the replacement cookie and the next refresh
-failed. Same-document coordination remains correct, but Version 1.2 must not be
-released until a focused cross-tab cookie-operation mutex is designed and
-verified without sharing access tokens.
+- Browser login, refresh, and logout acquire one exclusive same-origin Web Lock
+  before HTTP transport starts. The stable lock name contains no identity or
+  credential data.
+- Missing or failed Web Locks capability fails closed with a sanitized
+  coordination state; no unlocked cookie mutation or storage-based mutex is
+  attempted.
+- The cross-tab lock shares no access token, refresh token, cookie, user,
+  session, or family data. Access tokens remain per-tab and memory-only.
+- Lock waiting causes neither an authentication error nor an automatic retry.
+  Network outcomes that become indeterminate after request start retain the
+  existing no-retry behavior.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

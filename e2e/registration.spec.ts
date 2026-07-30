@@ -18,10 +18,10 @@ test('registers a customer account', async ({ page }) => {
   });
 
   await page.goto('/register');
-  await page.getByLabel('First name').fill('Meiir');
   await page.getByLabel('Last name').fill('Orazalin');
   await page.getByLabel('Email').fill('meiir@example.com');
   await page.getByLabel('Password').fill('example-password');
+  await page.getByLabel('First name').fill('Meiir');
   await page.getByRole('button', { name: 'Create account' }).click();
 
   await expect(

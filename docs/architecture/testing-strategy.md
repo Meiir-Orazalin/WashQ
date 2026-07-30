@@ -87,8 +87,21 @@ refresh, and unconfirmed logout retry.
 The final release review also uses the built API, built web application, and
 real PostgreSQL. The deliberate two-tab refresh stress test is not replaced by
 mocked browser coverage. Its observed `401`/`200` split, cleared replacement
-cookie, failed follow-up refresh, and zero-active-session family are recorded as
-a Version 1.2 release blocker.
+cookie, failed follow-up refresh, and zero-active-session family are retained as
+the Version 1.2.8 failing baseline that Version 1.2.9 must not reproduce.
+
+Version 1.2.9 adds focused lock-adapter tests for exclusive acquisition,
+fail-closed capability detection, sanitization, release, and sequential
+login/refresh/logout ordering. Provider tests prove that existing
+same-document single flight and logout barriers compose with the cross-tab
+lock. Desktop Chromium and WebKit use two pages in one Playwright
+`BrowserContext` to share the actual cookie jar. The suite verifies repeated
+sequential restoration, near-expiration rotation, refresh-versus-logout,
+login-versus-refresh, fail-closed unsupported-browser UI, maximum mutation
+concurrency of one, and a usable final cookie. Mobile Chrome retains the full
+login/restoration/logout regression suite. The release review repeats the
+multi-tab scenarios against the built API and real PostgreSQL and inspects only
+cookie attributes and hash-free family counts.
 
 ## Rules
 

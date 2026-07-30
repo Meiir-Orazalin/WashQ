@@ -8,6 +8,7 @@ import { LoginForm } from './login-form';
 
 const accessToken = 'test-only-memory-access-token';
 const password = 'example-password';
+const defaultLockManager = navigator.locks;
 
 function futureTimestamp(milliseconds = 15 * 60_000) {
   return new Date(Date.now() + milliseconds).toISOString();
@@ -132,6 +133,10 @@ describe('LoginForm', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     Reflect.deleteProperty(document, 'cookie');
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: defaultLockManager,
+    });
   });
 
   it('renders accessible fields and navigation links', async () => {
@@ -225,6 +230,74 @@ describe('LoginForm', () => {
       email: 'meiir@example.com',
       password,
     });
+  });
+
+  it('starts login transport only after acquiring the shared cookie-mutation lock', async () => {
+    const order: string[] = [];
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        async request<T>(
+          _name: string,
+          _options: { mode: 'exclusive' },
+          callback: () => Promise<T>,
+        ): Promise<T> {
+          order.push('lock-acquired');
+          const result = await callback();
+          order.push('lock-released');
+          return result;
+        },
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async (input) => {
+        if (String(input).endsWith('/auth/login')) {
+          order.push('login-request');
+          return jsonResponse(loginResponse);
+        }
+
+        order.push('me-request');
+        return jsonResponse(currentUserResponse);
+      }),
+    );
+    await renderReadyForm();
+    fillValidForm();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    await screen.findByText('You are signed in');
+
+    expect(order).toEqual(['lock-acquired', 'login-request', 'lock-released', 'me-request']);
+  });
+
+  it('fails closed with an accessible coordination message when Web Locks are unavailable', async () => {
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: undefined,
+    });
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    await renderReadyForm();
+    fillValidForm();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'We could not safely coordinate your session',
+      }),
+    ).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Your browser could not safely coordinate the sign-in session.',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'coordination-error',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to sign in' }));
+    expect(await screen.findByLabelText('Email')).toBeVisible();
   });
 
   it('stages the token only in memory, verifies /me, and displays its current user', async () => {

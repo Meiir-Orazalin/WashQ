@@ -8,10 +8,10 @@ current refresh session. Version 1.2.5 adds access-token authentication for the
 current-user endpoint. Version 1.2.6 adds the initial frontend login flow and
 memory-only authentication state. Version 1.2.7 adds controlled startup
 restoration and same-document proactive refresh. Version 1.2.8 adds coordinated
-frontend logout and performs the final authentication release review. Global
-guards and protected business endpoints remain absent. The release review found
-that refresh coordination still does not cross browser tabs and can invalidate
-an otherwise usable shared cookie, so Version 1.2 remains not ready.
+frontend logout and performs the final authentication release review. Version
+1.2.9 serializes browser login, refresh, and logout cookie mutations across
+same-origin tabs with a Web Lock. Global guards and protected business endpoints
+remain absent.
 
 ## Boundaries
 
@@ -201,8 +201,9 @@ has no variables or result data, so neither the password nor access token enters
 the TanStack Query cache. The password remains local to the form and is cleared
 after an API failure or successful authentication.
 
-The login request uses `credentials: "include"` so the browser accepts the
-backend-managed HttpOnly refresh cookie. `/auth/me` uses
+Before the login request starts, the frontend acquires the shared exclusive auth
+cookie-mutation Web Lock. The request uses `credentials: "include"` so the
+browser accepts the backend-managed HttpOnly refresh cookie. `/auth/me` uses
 `credentials: "omit"` and an explicit Authorization header, so that verification
 depends only on the staged access token. The login response user is not treated
 as final; only the contract-validated `/auth/me` user completes authentication.
@@ -223,9 +224,12 @@ through credential-omitting `GET /auth/me`. Only both successes transition to
 `authenticated`.
 
 The coordinator retains only the active Promise and gives concurrent callers
-that same Promise. It clears the reference after settlement. This prevents
+that same Promise. It clears the reference after settlement. The refresh
+transport executes inside the shared exclusive auth cookie-mutation Web Lock.
+This prevents
 Strict Mode effect replay, a timer, a visibility event, and multiple consumers
-within one JavaScript realm from issuing parallel rotations. Effect
+within one JavaScript realm from issuing parallel rotations, while the Web Lock
+queues rotations from other same-origin documents. Effect
 subscriptions and operation generations prevent unmounted or stale restoration
 results from overwriting a newer explicit login.
 
@@ -244,9 +248,10 @@ the provider suppresses further automatic rotation attempts for that token and
 then clears memory into `error`. This avoids blindly replaying a rotation that
 may have committed server-side.
 
-Coordination is intentionally limited to one document/JavaScript realm. It does
-not share access tokens or rotation locks across tabs and does not add global
-request interception or route protection.
+The lock stores no auth state and carries no token or user metadata. It wraps
+only login, refresh, and logout; `/me` remains an explicit Bearer request outside
+the lock. Access tokens are not shared across tabs and no global request
+interceptor or route protection is added.
 
 ## Frontend logout
 
@@ -258,7 +263,8 @@ logout intent and operation-generation invalidation
   -> immediate access-token, expiration, and user removal
   -> proactive timer cancellation and visibility-refresh suppression
   -> await any same-document refresh Promise
-  -> bodyless credentialed POST /auth/logout
+  -> acquire the shared cross-tab auth cookie-mutation Web Lock
+  -> bodyless credentialed POST /auth/logout inside the lock
   -> unauthenticated state after 204
 ```
 
@@ -269,7 +275,8 @@ work from rebuilding authenticated state. Logout never calls `/auth/me` or
 starts another refresh.
 
 The final statuses are `initializing`, `unauthenticated`, `authenticating`,
-`authenticated`, `logging-out`, `logout-error`, and `error`. `logout-error`
+`authenticated`, `logging-out`, `logout-error`, `coordination-error`, and
+`error`. `logout-error`
 means browser memory is already clear but server revocation could not be
 confirmed. Origin, network, server, and invalid-response failures are not
 retried automatically. The user can retry the idempotent logout directly, or
@@ -281,19 +288,34 @@ memory-only access token until expiration and remains subject to the stateless
 access-token semantics described above. Because the browser cookie is shared,
 its next refresh fails after successful server logout and clears that tab.
 
-## Cross-tab release finding
+## Cross-tab cookie-mutation coordination
 
-The Version 1.2.8 live Chromium review deliberately issued refreshes from two
-tabs sharing one cookie. One stress cycle returned `401` and `200`; the invalid
-response cleared the newer cookie, the next refresh returned `401`, and the
-affected PostgreSQL family had no active session. Depending on request timing,
-the predecessor can also be classified as replay and family-revoked.
+All frontend operations that can set, rotate, or clear `washqueue_refresh` use
+one stable exclusive Web Lock,
+`washqueue-auth-cookie-mutation-v1`. The HTTP request begins only in the lock
+callback; the callback settles only after transport and required response
+parsing. Waiting is not treated as an auth failure. Lock-capability or
+acquisition failure sends no request and surfaces the sanitized
+`AUTH_COORDINATION_UNAVAILABLE` state.
 
-Same-document single flight therefore does not make simultaneous multi-tab
-rotation safe. Version 1.2 must remain not ready until a focused follow-up
-serializes cookie-mutating refresh and logout operations across tabs with a
-browser-native mechanism, without sharing or persisting access tokens, and
-proves the behavior across supported browsers.
+Sequential two-tab restoration can rotate the same family multiple times, but
+every request observes the browser's current replacement cookie. One active
+replacement remains. Login and logout use the same lock so a newer login cookie
+cannot race an old refresh, and logout waits for both local refresh idle and
+cross-tab lock ownership before revoking the current cookie.
+
+One browser cookie jar cannot preserve different long-lived refresh identities
+per tab. The newest successful login owns the shared refresh cookie; other tabs
+may retain previously issued memory-only access tokens until expiration. Their
+next cookie rotation follows that newest login. Routine refresh intentionally
+does not reload `/me` in Version 1.2, so an already-open tab's displayed public
+user can lag until reload after a different-account login. No protected
+business action exists in this version; account-switch notification or
+reverification is required before those actions are introduced.
+
+Cross-tab logout notification is not added. See
+[ADR 0011](../decisions/0011-web-lock-for-auth-cookie-mutations.md) and the
+[supported-browser policy](supported-browsers.md).
 
 ## Configuration
 

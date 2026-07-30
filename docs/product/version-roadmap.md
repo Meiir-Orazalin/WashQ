@@ -10,7 +10,7 @@ documentation.
 Status: in progress.
 
 - [x] Version 1.1 — Customer registration.
-- [ ] Version 1.2 — Customer login and the minimum token lifecycle.
+- [x] Version 1.2 — Customer login and the minimum token lifecycle.
   - [x] Version 1.2.1 — Authentication configuration and session-token
         foundation.
   - [x] Version 1.2.2 — Backend customer login and initial session issuance.
@@ -22,15 +22,15 @@ Status: in progress.
         same-document refresh coordination.
   - [x] Version 1.2.8 — Frontend logout and final authentication hardening
         review.
-  - [ ] Version 1.2.9 — Cross-tab refresh/logout cookie-operation coordination
+  - [x] Version 1.2.9 — Cross-tab login/refresh/logout cookie-operation coordination
         and supported-browser verification.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
-Version 1.2.8 logout is complete, but its release review confirmed a cross-tab
-refresh race that can clear a successful replacement cookie and revoke the
-shared family. Version 1.2 and Version 1 remain incomplete until Version 1.2.9
-closes that release blocker.
+Version 1.2.9 closes the Version 1.2.8 cross-tab release blocker by serializing
+all browser login, refresh, and logout cookie mutations with one fail-closed
+same-origin Web Lock. Version 1 remains in progress because later customer
+profile and vehicle slices are not implemented.
 
 ## Version 2 — Business onboarding
 

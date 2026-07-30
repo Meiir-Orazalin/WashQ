@@ -1,13 +1,56 @@
 import type { RefreshResponse } from '@washqueue/contracts';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRefreshCoordinator } from './refresh-coordinator';
 
 const response: RefreshResponse = {
   accessToken: 'transient-access-token',
   accessTokenExpiresAt: '2026-07-28T12:15:00.000Z',
 };
+const defaultLockManager = navigator.locks;
 
 describe('refresh coordinator', () => {
+  afterEach(() => {
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: defaultLockManager,
+    });
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('wraps the complete default refresh request in the cross-tab lock', async () => {
+    const order: string[] = [];
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        async request<T>(
+          _name: string,
+          _options: { mode: 'exclusive' },
+          callback: () => Promise<T>,
+        ): Promise<T> {
+          order.push('lock-acquired');
+          const result = await callback();
+          order.push('lock-released');
+          return result;
+        },
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>().mockImplementation(async () => {
+        order.push('refresh-request');
+        return new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    await expect(createRefreshCoordinator().refresh()).resolves.toEqual(response);
+
+    expect(order).toEqual(['lock-acquired', 'refresh-request', 'lock-released']);
+  });
+
   it('returns one shared in-flight Promise to concurrent callers', async () => {
     let resolveRequest: ((value: RefreshResponse) => void) | undefined;
     const pending = new Promise<RefreshResponse>((resolve) => {
