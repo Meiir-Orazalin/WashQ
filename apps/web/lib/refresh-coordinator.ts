@@ -1,5 +1,6 @@
 import type { RefreshResponse } from '@washqueue/contracts';
 import { refreshSession } from './api-client';
+import { authCookieMutationLock } from './auth-cookie-mutation-lock';
 
 export interface RefreshCoordinator {
   refresh(): Promise<RefreshResponse>;
@@ -7,7 +8,8 @@ export interface RefreshCoordinator {
 }
 
 export function createRefreshCoordinator(
-  requestRefresh: () => Promise<RefreshResponse> = refreshSession,
+  requestRefresh: () => Promise<RefreshResponse> = () =>
+    authCookieMutationLock.runExclusive(refreshSession),
 ): RefreshCoordinator {
   let inFlight: Promise<RefreshResponse> | null = null;
 

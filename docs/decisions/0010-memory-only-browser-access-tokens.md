@@ -48,9 +48,10 @@ Reloading the page loses the prior access token and begins in a neutral
 initialization state. Version 1.2.7 may restore authentication by rotating the
 HttpOnly cookie into a new provider-owned token and verifying `/auth/me`.
 Same-document callers share one in-flight Promise. Ambiguous rotation outcomes
-are not retried automatically, and coordination does not cross tab boundaries.
-Frontend features receive authentication through the provider rather than a
-transport-global or persisted token.
+are not retried automatically. Version 1.2.9 adds cross-tab exclusivity only
+around cookie-mutating HTTP operations through ADR 0011; it does not share
+access tokens or provider state. Frontend features receive authentication
+through the provider rather than a transport-global or persisted token.
 
 Frontend logout clears provider memory before server confirmation, invalidates
 stale operation generations, and waits for active same-document rotation before
@@ -58,6 +59,6 @@ calling the cookie-authenticated logout endpoint. A failed confirmation never
 restores the old token.
 
 The Version 1.2.8 release review demonstrated that simultaneous cross-tab
-rotations can still invalidate the shared cookie and family. This does not
-change the memory-only decision: the follow-up must coordinate only the
-cookie-mutating operation and must not broadcast or persist access tokens.
+rotations could invalidate the shared cookie and family. Version 1.2.9 closes
+that race with the browser lock selected by ADR 0011. Lock names and metadata
+contain no credentials, and access tokens remain per-tab and memory-only.

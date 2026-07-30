@@ -18,6 +18,10 @@ import {
   requireFutureAccessTokenExpiration,
 } from '@/lib/access-token-expiration';
 import {
+  AuthCoordinationUnavailableError,
+  authCookieMutationLock,
+} from '@/lib/auth-cookie-mutation-lock';
+import {
   ApiClientError,
   getCurrentUser,
   logoutCurrentSession as requestLogoutCurrentSession,
@@ -34,6 +38,7 @@ export type AuthenticationStatus =
   | 'authenticated'
   | 'logging-out'
   | 'logout-error'
+  | 'coordination-error'
   | 'error';
 
 export interface AuthenticationState {
@@ -51,7 +56,7 @@ interface AuthenticationContextValue extends AuthenticationState {
     operationGeneration: number,
   ): boolean;
   completeAuthentication(currentUser: LoginUser, operationGeneration: number): boolean;
-  failAuthentication(operationGeneration: number): void;
+  failAuthentication(operationGeneration: number, status?: 'error' | 'coordination-error'): void;
   continueUnauthenticated(): void;
   logout(): Promise<void>;
   continueAfterLogoutError(): void;
@@ -93,7 +98,7 @@ export function AuthenticationProvider({
   stateRef.current = state;
 
   const clearAuthentication = useCallback(
-    (status: 'unauthenticated' | 'error' | 'logout-error') => {
+    (status: 'unauthenticated' | 'error' | 'logout-error' | 'coordination-error') => {
       operationGenerationRef.current += 1;
       indeterminateTokenRef.current = null;
       setRefreshScheduleMode('proactive');
@@ -159,9 +164,9 @@ export function AuthenticationProvider({
   );
 
   const failAuthentication = useCallback(
-    (operationGeneration: number) => {
+    (operationGeneration: number, status: 'error' | 'coordination-error' = 'error') => {
       if (operationGenerationRef.current === operationGeneration && !logoutIntentRef.current) {
-        clearAuthentication('error');
+        clearAuthentication(status);
       }
     },
     [clearAuthentication],
@@ -186,10 +191,16 @@ export function AuthenticationProvider({
       await refreshCoordinator.waitForIdle();
 
       try {
-        await requestLogoutCurrentSession();
-      } catch {
+        await authCookieMutationLock.runExclusive(requestLogoutCurrentSession);
+      } catch (error) {
         if (mountedRef.current && operationGenerationRef.current === generation) {
-          setState({ ...emptyAuthenticationState, status: 'logout-error' });
+          setState({
+            ...emptyAuthenticationState,
+            status:
+              error instanceof AuthCoordinationUnavailableError
+                ? 'coordination-error'
+                : 'logout-error',
+          });
         }
         return;
       }
@@ -263,6 +274,11 @@ export function AuthenticationProvider({
           return;
         }
 
+        if (error instanceof AuthCoordinationUnavailableError) {
+          clearAuthentication('coordination-error');
+          return;
+        }
+
         clearAuthentication('error');
       }
     }
@@ -330,6 +346,11 @@ export function AuthenticationProvider({
 
         if (isInvalidRefreshSession(error)) {
           clearAuthentication('unauthenticated');
+          return;
+        }
+
+        if (error instanceof AuthCoordinationUnavailableError) {
+          clearAuthentication('coordination-error');
           return;
         }
 

@@ -61,12 +61,34 @@ export function LoginForm() {
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
+  function continueAfterCoordinationError() {
+    login.reset();
+    setExplicitLoginStarted(false);
+    authentication.continueUnauthenticated();
+  }
+
   if (authentication.status === 'initializing') {
     return (
       <section className="session-status" role="status" aria-live="polite" aria-busy="true">
         <p className="eyebrow">Session check</p>
         <h2>Restoring your session…</h2>
         <p>Please wait while we securely check your existing browser session.</p>
+      </section>
+    );
+  }
+
+  if (authentication.status === 'coordination-error') {
+    return (
+      <section className="session-status session-status--error" role="alert">
+        <p className="eyebrow">Session coordination unavailable</p>
+        <h2>We could not safely coordinate your session</h2>
+        <p>
+          Your browser could not safely coordinate the sign-in session. Please update your browser
+          or close other open tabs and try again.
+        </p>
+        <button className="submit-button" type="button" onClick={continueAfterCoordinationError}>
+          Continue to sign in
+        </button>
       </section>
     );
   }

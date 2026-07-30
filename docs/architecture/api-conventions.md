@@ -181,11 +181,14 @@ The central web API client:
   retry requests, or log request credentials.
 
 The non-React refresh coordinator calls this narrow client method and shares
-only an active Promise within one JavaScript realm. It also exposes a narrow
-idle barrier so frontend logout can wait for an already-committing rotation
-without becoming a token store. Authentication tokens remain owned by the
-provider, not the client or TanStack Query. No global interceptor or arbitrary
-401 retry exists.
+only an active Promise within one JavaScript realm. Login callers, the refresh
+coordinator, and logout callers execute their complete client operation inside
+the same cross-tab exclusive auth cookie-mutation Web Lock. The client remains
+responsible only for HTTP and contract parsing; the lock contains no auth state.
+The coordinator also exposes a narrow idle barrier so frontend logout can wait
+for an already-committing local rotation without becoming a token store.
+Authentication tokens remain owned by the provider, not the client, lock, or
+TanStack Query. No global interceptor or arbitrary 401 retry exists.
 
 ## Errors
 

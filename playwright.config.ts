@@ -26,7 +26,12 @@ export default defineConfig({
     },
     {
       name: 'chrome-mobile',
+      grepInvert: /@cross-tab/,
       use: { ...devices['Pixel 7'], channel: 'chrome' },
+    },
+    {
+      name: 'webkit-desktop',
+      use: { ...devices['Desktop Safari'] },
     },
   ],
 });

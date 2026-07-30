@@ -54,8 +54,18 @@ the response. Same-document callers share one request. Frontend logout first
 clears memory and waits for that request to settle, then sends a bodyless
 credentialed logout so the newest cookie is revoked.
 
-Separate tabs remain independent. The Version 1.2.8 release review confirmed
-that simultaneous tab refreshes can produce one success and one invalid-session
-response whose cookie clearing removes the successful replacement. This is a
-release blocker, not a supported steady state; Version 1.2.9 must coordinate
-cookie-mutating auth operations across tabs before authentication is ready.
+Login, refresh, and logout additionally execute under the same exclusive
+same-origin Web Lock. The fetch begins only after lock acquisition and response
+processing settles before release. This serializes every operation that can set,
+rotate, or clear the cookie across tabs. `/auth/me`, registration, health, and
+other non-cookie-mutating requests do not take this lock.
+
+The frontend fails closed when Web Locks are unavailable; it sends no unlocked
+cookie mutation. Tabs retain independent memory-only access tokens, but the
+browser has one shared persistent refresh cookie. Sequential restoration may
+therefore rotate the family once per tab. The latest explicit login determines
+the cookie-backed identity for future refreshes; open tabs can retain an older
+memory-only access token and display until expiration or reload. Protected
+business actions must not be added before the account-switch behavior is
+revalidated. See
+[ADR 0011](../decisions/0011-web-lock-for-auth-cookie-mutations.md).

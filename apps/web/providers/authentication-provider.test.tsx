@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LoginForm } from '@/components/login-form';
+import { AuthCoordinationUnavailableError } from '@/lib/auth-cookie-mutation-lock';
 import { ApiClientError } from '@/lib/api-client';
 import { createRefreshCoordinator, type RefreshCoordinator } from '@/lib/refresh-coordinator';
 import { AuthenticationProvider, useAuthentication } from './authentication-provider';
@@ -14,6 +15,7 @@ const user: LoginUser = {
   lastName: 'Customer',
   email: 'meiir@example.com',
 };
+const defaultLockManager = navigator.locks;
 
 function futureTimestamp(milliseconds = 15 * 60_000) {
   return new Date(Date.now() + milliseconds).toISOString();
@@ -185,6 +187,28 @@ describe('AuthenticationProvider restoration', () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
     expect(coordinator.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces a safe coordination error without calling /me or retrying', async () => {
+    const coordinator = {
+      refresh: vi.fn().mockRejectedValue(new AuthCoordinationUnavailableError()),
+    };
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderProvider(coordinator, { withLoginForm: true });
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'We could not safely coordinate your session',
+      }),
+    ).toBeVisible();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'coordination-error',
+    );
+    expect(coordinator.refresh).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -518,20 +542,43 @@ describe('AuthenticationProvider logout coordination', () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     Reflect.deleteProperty(document, 'cookie');
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: defaultLockManager,
+    });
   });
 
   it('clears in-memory state immediately, cancels scheduling, and settles a 204 as unauthenticated', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    const order: string[] = [];
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        async request<T>(
+          _name: string,
+          _options: { mode: 'exclusive' },
+          callback: () => Promise<T>,
+        ): Promise<T> {
+          order.push('lock-acquired');
+          const result = await callback();
+          order.push('lock-released');
+          return result;
+        },
+      },
+    });
     let resolveLogout: ((response: Response) => void) | undefined;
     const fetchMock = vi.fn(
       () =>
         new Promise<Response>((resolve) => {
+          order.push('logout-request');
           resolveLogout = resolve;
         }),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const waitForIdle = vi.fn().mockResolvedValue(undefined);
+    const waitForIdle = vi.fn().mockImplementation(async () => {
+      order.push('local-refresh-idle');
+    });
     const refresh = vi.fn().mockRejectedValue(invalidRefreshSession());
     renderProvider({ refresh, waitForIdle }, { withLoginForm: true });
     await flushMicrotasks();
@@ -558,6 +605,7 @@ describe('AuthenticationProvider logout coordination', () => {
 
     await flushMicrotasks();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['local-refresh-idle', 'lock-acquired', 'logout-request']);
     resolveLogout?.(new Response(null, { status: 204 }));
     await flushMicrotasks();
 
@@ -566,6 +614,12 @@ describe('AuthenticationProvider logout coordination', () => {
       'unauthenticated',
     );
     expect(refresh).toHaveBeenCalledTimes(1);
+    expect(order).toEqual([
+      'local-refresh-idle',
+      'lock-acquired',
+      'logout-request',
+      'lock-released',
+    ]);
   });
 
   it('waits for an in-flight refresh and ignores its late token before logging out', async () => {
@@ -699,6 +753,39 @@ describe('AuthenticationProvider logout coordination', () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed and keeps local state clear when logout coordination is unavailable', async () => {
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: undefined,
+    });
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    renderProvider(
+      { refresh: vi.fn().mockRejectedValue(invalidRefreshSession()) },
+      { withLoginForm: true },
+    );
+    await screen.findByLabelText('Email');
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await screen.findByRole('heading', { name: 'You are signed in' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'We could not safely coordinate your session',
+      }),
+    ).toBeVisible();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'coordination-error',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('does not duplicate a pending logout request', async () => {
