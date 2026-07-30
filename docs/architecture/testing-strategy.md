@@ -65,6 +65,17 @@ confirms memory-only storage, and proves reload returns to the login form
 without an automatic restoration request. Existing home and registration
 browser flows remain regression coverage.
 
+Version 1.2.7 adds central-client refresh classification tests, exact-Promise
+single-flight coordinator tests, and provider tests for initialization,
+restoration, `/me` verification, Strict Mode, stale-result suppression,
+expiration scheduling, visibility recovery, invalid sessions, and ambiguous
+failures. Fake timers prove one timer is replaced per token and that an
+indeterminate rotation is not retried before the known token expires. Storage
+assertions cover Web Storage, IndexedDB, cookies, DOM, and React Query. The
+desktop/mobile Playwright login flow reloads the page, asserts one refresh
+followed by `/me`, and verifies the rotated cookie remains HttpOnly while access
+tokens remain absent from script-visible persistence.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

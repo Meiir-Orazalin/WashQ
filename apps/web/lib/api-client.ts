@@ -3,11 +3,13 @@ import {
   currentUserResponseSchema,
   healthResponseSchema,
   loginResponseSchema,
+  refreshResponseSchema,
   registrationResponseSchema,
   type CurrentUserResponse,
   type HealthResponse,
   type LoginRequest,
   type LoginResponse,
+  type RefreshResponse,
   type RegistrationRequest,
   type RegistrationResponse,
 } from '@washqueue/contracts';
@@ -108,6 +110,34 @@ export async function getCurrentUser(accessToken: string): Promise<CurrentUserRe
   const parsed = currentUserResponseSchema.safeParse(payload);
   if (!parsed.success) {
     throw new ApiClientError('The API returned an invalid current-user response');
+  }
+
+  return parsed.data;
+}
+
+export async function refreshSession(): Promise<RefreshResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${publicEnvironment.NEXT_PUBLIC_API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+  } catch {
+    throw new ApiClientError('The refresh request could not be completed');
+  }
+
+  const payload = await readJson(response, 'The API returned an invalid refresh response');
+
+  if (!response.ok) {
+    throw toApiClientError(payload, response.status, 'Session refresh failed');
+  }
+
+  const parsed = refreshResponseSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new ApiClientError('The API returned an invalid refresh response');
   }
 
   return parsed.data;

@@ -23,8 +23,8 @@ credential already uses the inaccessible HttpOnly transport selected by ADR 0008
   to requests that require it.
 - Keep password and token values out of TanStack mutation variables and result
   data.
-- Treat a page reload as unauthenticated until a later restoration flow obtains
-  a new access token through the HttpOnly refresh cookie.
+- On page reload, obtain a new memory-only access token by rotating the HttpOnly
+  refresh cookie through one same-document single-flight request.
 - Clear all staged authentication data when post-login current-user verification
   fails, without automatically refreshing in Version 1.2.6.
 
@@ -44,9 +44,10 @@ credential already uses the inaccessible HttpOnly transport selected by ADR 0008
 
 ## Consequences
 
-Reloading the page loses the access token and authenticated UI even though the
-HttpOnly refresh cookie may still represent a valid session. Version 1.2.7 must
-restore authentication by rotating that cookie into a new memory-only access
-token, with single-flight and failure handling designed explicitly. Frontend
-features must receive authentication through the provider rather than reading a
-transport-global token.
+Reloading the page loses the prior access token and begins in a neutral
+initialization state. Version 1.2.7 may restore authentication by rotating the
+HttpOnly cookie into a new provider-owned token and verifying `/auth/me`.
+Same-document callers share one in-flight Promise. Ambiguous rotation outcomes
+are not retried automatically, and coordination does not cross tab boundaries.
+Frontend features receive authentication through the provider rather than a
+transport-global or persisted token.

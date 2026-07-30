@@ -41,9 +41,8 @@ export function useLoginMutation() {
           throw error;
         }
 
-        stageAccessToken(login.accessToken, login.accessTokenExpiresAt);
-
         try {
+          stageAccessToken(login.accessToken, login.accessTokenExpiresAt);
           const currentUser = await getCurrentUser(login.accessToken);
           completeAuthentication(currentUser.user);
         } catch {

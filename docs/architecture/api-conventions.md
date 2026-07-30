@@ -163,9 +163,12 @@ refresh cookie or refresh session.
 
 ## Frontend API client
 
-The Version 1.2.6 central web API client:
+The central web API client:
 
 - sends `POST /auth/login` with `credentials: "include"`;
+- sends bodyless `POST /auth/refresh` with `credentials: "include"` and no
+  Authorization header;
+- parses refresh success through the shared refresh-response contract;
 - parses login success through the shared login-response contract;
 - sends `GET /auth/me` only with an explicitly supplied in-memory Bearer token
   and `credentials: "omit"`;
@@ -173,11 +176,12 @@ The Version 1.2.6 central web API client:
 - converts invalid JSON, invalid success responses, network failures, and API
   errors into sanitized frontend errors;
 - does not keep a global token, attach Authorization to public endpoints,
-  retry a 401, call refresh automatically, or log request credentials.
+  retry requests, or log request credentials.
 
-The login TanStack mutation has no variables or returned data. Passwords and
-tokens therefore do not become mutation-cache data. Version 1.2.6 adds no API
-endpoint, global guard, protected business route, or global logout.
+The non-React refresh coordinator calls this narrow client method and shares
+only an active Promise within one JavaScript realm. Authentication tokens remain
+owned by the provider, not the client or TanStack Query. No global interceptor
+or arbitrary 401 retry exists.
 
 ## Errors
 

@@ -1,11 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiClientError } from '@/lib/api-client';
+import type { RefreshCoordinator } from '@/lib/refresh-coordinator';
 import { AuthenticationProvider, useAuthentication } from '@/providers/authentication-provider';
 import { LoginForm } from './login-form';
 
 const accessToken = 'test-only-memory-access-token';
 const password = 'example-password';
+
+function futureTimestamp(milliseconds = 15 * 60_000) {
+  return new Date(Date.now() + milliseconds).toISOString();
+}
+
 const loginResponse = {
   user: {
     id: 'df4e7850-e329-4679-91f1-77b409d93f4f',
@@ -14,7 +21,9 @@ const loginResponse = {
     email: 'meiir@example.com',
   },
   accessToken,
-  accessTokenExpiresAt: '2026-07-28T12:15:00.000Z',
+  get accessTokenExpiresAt() {
+    return futureTimestamp();
+  },
 };
 const currentUserResponse = {
   user: {
@@ -25,7 +34,7 @@ const currentUserResponse = {
   },
 };
 
-function renderForm() {
+function renderForm(refreshCoordinator: RefreshCoordinator = invalidSessionCoordinator()) {
   const client = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -34,7 +43,7 @@ function renderForm() {
 
   const rendered = render(
     <QueryClientProvider client={client}>
-      <AuthenticationProvider>
+      <AuthenticationProvider refreshCoordinator={refreshCoordinator}>
         <LoginForm />
         <AuthenticationProbe />
       </AuthenticationProvider>
@@ -42,6 +51,22 @@ function renderForm() {
   );
 
   return { ...rendered, client };
+}
+
+async function renderReadyForm(refreshCoordinator?: RefreshCoordinator) {
+  const rendered = renderForm(refreshCoordinator);
+  await screen.findByLabelText('Email');
+  return rendered;
+}
+
+function invalidSessionCoordinator(): RefreshCoordinator {
+  return {
+    refresh: vi
+      .fn()
+      .mockRejectedValue(
+        new ApiClientError('Session refresh failed', 401, 'INVALID_REFRESH_SESSION'),
+      ),
+  };
 }
 
 function AuthenticationProbe() {
@@ -103,8 +128,8 @@ describe('LoginForm', () => {
     Reflect.deleteProperty(document, 'cookie');
   });
 
-  it('renders accessible fields and navigation links', () => {
-    renderForm();
+  it('renders accessible fields and navigation links', async () => {
+    await renderReadyForm();
 
     expect(screen.getByLabelText('Email')).toHaveAttribute('autocomplete', 'email');
     expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'current-password');
@@ -119,8 +144,8 @@ describe('LoginForm', () => {
     );
   });
 
-  it('shows shared-contract field errors for invalid email and missing password', () => {
-    renderForm();
+  it('shows shared-contract field errors for invalid email and missing password', async () => {
+    await renderReadyForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'invalid' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -131,8 +156,8 @@ describe('LoginForm', () => {
     expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('rejects a password longer than 128 characters', () => {
-    renderForm();
+  it('rejects a password longer than 128 characters', async () => {
+    await renderReadyForm();
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'meiir@example.com' },
     });
@@ -145,8 +170,8 @@ describe('LoginForm', () => {
     expect(screen.getByText('Password must contain at most 128 characters')).toBeVisible();
   });
 
-  it('toggles password visibility with a real button and preserves the value', () => {
-    renderForm();
+  it('toggles password visibility with a real button and preserves the value', async () => {
+    await renderReadyForm();
     const passwordInput = screen.getByLabelText('Password');
     fireEvent.change(passwordInput, { target: { value: password } });
 
@@ -163,7 +188,7 @@ describe('LoginForm', () => {
     const loginResponsePending = new Promise<Response>(() => undefined);
     const fetchMock = vi.fn<typeof fetch>().mockReturnValue(loginResponsePending);
     vi.stubGlobal('fetch', fetchMock);
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -179,7 +204,7 @@ describe('LoginForm', () => {
   it('normalizes and submits only the shared login fields with credentials included', async () => {
     const fetchMock = successfulFetch();
     vi.stubGlobal('fetch', fetchMock);
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -208,7 +233,7 @@ describe('LoginForm', () => {
       return currentUserPending;
     });
     vi.stubGlobal('fetch', fetchMock);
-    const { client } = renderForm();
+    const { client } = await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -264,7 +289,7 @@ describe('LoginForm', () => {
       .fn<typeof fetch>()
       .mockResolvedValue(apiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password'));
     vi.stubGlobal('fetch', fetchMock);
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -291,7 +316,7 @@ describe('LoginForm', () => {
   ])('shows a generic error for $name without calling /me', async ({ response }) => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response());
     vi.stubGlobal('fetch', fetchMock);
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -323,7 +348,7 @@ describe('LoginForm', () => {
       .mockResolvedValueOnce(jsonResponse(loginResponse))
       .mockResolvedValueOnce(response());
     vi.stubGlobal('fetch', fetchMock);
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -346,7 +371,7 @@ describe('LoginForm', () => {
   it('handles a network failure without leaking request data', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new TypeError('network offline'));
     vi.stubGlobal('fetch', fetchMock);
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -369,7 +394,7 @@ describe('LoginForm', () => {
       set: cookieWrite,
     });
     vi.stubGlobal('fetch', successfulFetch());
-    renderForm();
+    await renderReadyForm();
     fillValidForm();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
@@ -384,16 +409,16 @@ describe('LoginForm', () => {
     expect(document.body.innerHTML).not.toContain('washqueue_refresh');
   });
 
-  it('starts unauthenticated after the provider is remounted without restoring a session', async () => {
+  it('resolves an invalid startup session to the login form after remounting', async () => {
     const fetchMock = successfulFetch();
     vi.stubGlobal('fetch', fetchMock);
-    const firstRender = renderForm();
+    const firstRender = await renderReadyForm();
     fillValidForm();
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     await screen.findByText('You are signed in');
 
     firstRender.unmount();
-    renderForm();
+    await renderReadyForm();
 
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
     expect(screen.getByTestId('authentication-state')).toHaveAttribute(
