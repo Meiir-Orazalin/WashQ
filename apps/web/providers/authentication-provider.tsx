@@ -22,6 +22,11 @@ import {
   authCookieMutationLock,
 } from '@/lib/auth-cookie-mutation-lock';
 import {
+  createAuthLifecycleChannel,
+  type AuthLifecycleChannel,
+  type AuthLifecycleEvent,
+} from '@/lib/auth-lifecycle-channel';
+import {
   ApiClientError,
   getCurrentUser,
   logoutCurrentSession as requestLogoutCurrentSession,
@@ -33,12 +38,14 @@ import {
 
 export type AuthenticationStatus =
   | 'initializing'
+  | 'synchronizing'
   | 'unauthenticated'
   | 'authenticating'
   | 'authenticated'
   | 'logging-out'
   | 'logout-error'
   | 'coordination-error'
+  | 'lifecycle-error'
   | 'error';
 
 export interface AuthenticationState {
@@ -49,13 +56,14 @@ export interface AuthenticationState {
 }
 
 interface AuthenticationContextValue extends AuthenticationState {
-  beginAuthentication(): number;
-  stageAccessToken(
+  beginAuthentication(): number | null;
+  isAuthenticationOperationCurrent(operationGeneration: number): boolean;
+  completeAuthentication(
     accessToken: string,
     accessTokenExpiresAt: string,
+    currentUser: LoginUser,
     operationGeneration: number,
   ): boolean;
-  completeAuthentication(currentUser: LoginUser, operationGeneration: number): boolean;
   failAuthentication(operationGeneration: number, status?: 'error' | 'coordination-error'): void;
   continueUnauthenticated(): void;
   logout(): Promise<void>;
@@ -65,6 +73,7 @@ interface AuthenticationContextValue extends AuthenticationState {
 interface AuthenticationProviderProps {
   children: ReactNode;
   refreshCoordinator?: RefreshCoordinator;
+  lifecycleChannelFactory?: () => AuthLifecycleChannel | null;
 }
 
 type RefreshScheduleMode = 'proactive' | 'indeterminate';
@@ -85,12 +94,20 @@ const AuthenticationContext = createContext<AuthenticationContextValue | null>(n
 export function AuthenticationProvider({
   children,
   refreshCoordinator = defaultRefreshCoordinator,
+  lifecycleChannelFactory = createAuthLifecycleChannel,
 }: AuthenticationProviderProps) {
   const [state, setState] = useState<AuthenticationState>(initialAuthenticationState);
   const [refreshScheduleMode, setRefreshScheduleMode] = useState<RefreshScheduleMode>('proactive');
   const stateRef = useRef(state);
   const mountedRef = useRef(false);
   const operationGenerationRef = useRef(0);
+  const lifecycleChannelRef = useRef<AuthLifecycleChannel | null>(null);
+  const pendingLifecycleBroadcastRef = useRef<{
+    type: AuthLifecycleEvent['type'];
+    generation: number;
+  } | null>(null);
+  const explicitLoginIntentRef = useRef(false);
+  const deferredSessionChangeRef = useRef(false);
   const indeterminateTokenRef = useRef<string | null>(null);
   const activeProactiveRefreshRef = useRef<Promise<void> | null>(null);
   const activeLogoutRef = useRef<Promise<void> | null>(null);
@@ -98,8 +115,13 @@ export function AuthenticationProvider({
   stateRef.current = state;
 
   const clearAuthentication = useCallback(
-    (status: 'unauthenticated' | 'error' | 'logout-error' | 'coordination-error') => {
+    (
+      status:
+        'unauthenticated' | 'error' | 'logout-error' | 'coordination-error' | 'lifecycle-error',
+    ) => {
       operationGenerationRef.current += 1;
+      pendingLifecycleBroadcastRef.current = null;
+      explicitLoginIntentRef.current = false;
       indeterminateTokenRef.current = null;
       setRefreshScheduleMode('proactive');
       setState({ ...emptyAuthenticationState, status });
@@ -108,17 +130,29 @@ export function AuthenticationProvider({
   );
 
   const beginAuthentication = useCallback(() => {
+    if (!lifecycleChannelRef.current) {
+      clearAuthentication('lifecycle-error');
+      return null;
+    }
+
     operationGenerationRef.current += 1;
     const generation = operationGenerationRef.current;
     logoutIntentRef.current = false;
+    explicitLoginIntentRef.current = true;
+    pendingLifecycleBroadcastRef.current = null;
     indeterminateTokenRef.current = null;
     setRefreshScheduleMode('proactive');
     setState({ ...emptyAuthenticationState, status: 'authenticating' });
     return generation;
-  }, []);
+  }, [clearAuthentication]);
 
-  const stageAccessToken = useCallback(
-    (accessToken: string, accessTokenExpiresAt: string, operationGeneration: number) => {
+  const completeAuthentication = useCallback(
+    (
+      accessToken: string,
+      accessTokenExpiresAt: string,
+      currentUser: LoginUser,
+      operationGeneration: number,
+    ) => {
       requireFutureAccessTokenExpiration(accessTokenExpiresAt);
       if (
         !mountedRef.current ||
@@ -128,44 +162,37 @@ export function AuthenticationProvider({
         return false;
       }
 
+      explicitLoginIntentRef.current = false;
       indeterminateTokenRef.current = null;
       setRefreshScheduleMode('proactive');
       setState({
         accessToken,
         accessTokenExpiresAt,
-        currentUser: null,
-        status: 'authenticating',
-      });
-      return true;
-    },
-    [],
-  );
-
-  const completeAuthentication = useCallback(
-    (currentUser: LoginUser, operationGeneration: number) => {
-      if (
-        !mountedRef.current ||
-        logoutIntentRef.current ||
-        operationGenerationRef.current !== operationGeneration
-      ) {
-        return false;
-      }
-
-      indeterminateTokenRef.current = null;
-      setRefreshScheduleMode('proactive');
-      setState((current) => ({
-        ...current,
         currentUser,
         status: 'authenticated',
-      }));
+      });
+      pendingLifecycleBroadcastRef.current = {
+        type: 'session-changed',
+        generation: operationGeneration,
+      };
       return true;
     },
     [],
   );
+
+  const isAuthenticationOperationCurrent = useCallback((operationGeneration: number) => {
+    return (
+      mountedRef.current &&
+      explicitLoginIntentRef.current &&
+      !logoutIntentRef.current &&
+      operationGenerationRef.current === operationGeneration
+    );
+  }, []);
 
   const failAuthentication = useCallback(
     (operationGeneration: number, status: 'error' | 'coordination-error' = 'error') => {
       if (operationGenerationRef.current === operationGeneration && !logoutIntentRef.current) {
+        explicitLoginIntentRef.current = false;
         clearAuthentication(status);
       }
     },
@@ -173,7 +200,8 @@ export function AuthenticationProvider({
   );
 
   const continueUnauthenticated = useCallback(() => {
-    clearAuthentication('unauthenticated');
+    logoutIntentRef.current = false;
+    clearAuthentication(lifecycleChannelRef.current ? 'unauthenticated' : 'lifecycle-error');
   }, [clearAuthentication]);
 
   const logout = useCallback((): Promise<void> => {
@@ -182,6 +210,9 @@ export function AuthenticationProvider({
     }
 
     logoutIntentRef.current = true;
+    explicitLoginIntentRef.current = false;
+    deferredSessionChangeRef.current = false;
+    pendingLifecycleBroadcastRef.current = null;
     const generation = ++operationGenerationRef.current;
     indeterminateTokenRef.current = null;
     setRefreshScheduleMode('proactive');
@@ -206,6 +237,8 @@ export function AuthenticationProvider({
       }
 
       if (mountedRef.current && operationGenerationRef.current === generation) {
+        logoutIntentRef.current = false;
+        pendingLifecycleBroadcastRef.current = { type: 'logout', generation };
         setState({ ...emptyAuthenticationState, status: 'unauthenticated' });
       }
     })();
@@ -221,13 +254,111 @@ export function AuthenticationProvider({
   }, [refreshCoordinator]);
 
   const continueAfterLogoutError = useCallback(() => {
-    logoutIntentRef.current = true;
+    logoutIntentRef.current = false;
     clearAuthentication('unauthenticated');
   }, [clearAuthentication]);
+
+  const synchronizeAfterRemoteSessionChange = useCallback(() => {
+    if (!mountedRef.current || logoutIntentRef.current) {
+      return;
+    }
+
+    const generation = ++operationGenerationRef.current;
+    pendingLifecycleBroadcastRef.current = null;
+    indeterminateTokenRef.current = null;
+    setRefreshScheduleMode('proactive');
+    setState({ ...emptyAuthenticationState, status: 'synchronizing' });
+
+    async function synchronize() {
+      try {
+        const refreshed = await refreshCoordinator.refresh();
+        const expiresAt = requireFutureAccessTokenExpiration(refreshed.accessTokenExpiresAt);
+
+        if (!isCurrentStatus(generation, 'synchronizing')) {
+          return;
+        }
+
+        const currentUser = await getCurrentUser(refreshed.accessToken);
+        if (!isCurrentStatus(generation, 'synchronizing')) {
+          return;
+        }
+
+        if (expiresAt <= Date.now()) {
+          clearAuthentication('error');
+          return;
+        }
+
+        setState({
+          accessToken: refreshed.accessToken,
+          accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+          currentUser: currentUser.user,
+          status: 'authenticated',
+        });
+      } catch (error) {
+        if (!isCurrentStatus(generation, 'synchronizing')) {
+          return;
+        }
+
+        if (isInvalidRefreshSession(error) || isAuthenticationRequired(error)) {
+          clearAuthentication('unauthenticated');
+          return;
+        }
+
+        if (error instanceof AuthCoordinationUnavailableError) {
+          clearAuthentication('coordination-error');
+          return;
+        }
+
+        clearAuthentication('error');
+      }
+    }
+
+    void synchronize();
+  }, [clearAuthentication, refreshCoordinator]);
 
   useEffect(() => {
     mountedRef.current = true;
     let subscribed = true;
+    const lifecycleChannel = lifecycleChannelFactory();
+    if (!lifecycleChannel) {
+      clearAuthentication('lifecycle-error');
+      return () => {
+        subscribed = false;
+        mountedRef.current = false;
+      };
+    }
+
+    lifecycleChannelRef.current = lifecycleChannel;
+
+    function handleLifecycleEvent(event: AuthLifecycleEvent) {
+      if (event.type === 'logout') {
+        logoutIntentRef.current = true;
+        explicitLoginIntentRef.current = false;
+        deferredSessionChangeRef.current = false;
+        pendingLifecycleBroadcastRef.current = null;
+        operationGenerationRef.current += 1;
+        indeterminateTokenRef.current = null;
+        setRefreshScheduleMode('proactive');
+        setState({ ...emptyAuthenticationState, status: 'unauthenticated' });
+        return;
+      }
+
+      if (logoutIntentRef.current) {
+        if (stateRef.current.status !== 'unauthenticated' || activeLogoutRef.current) {
+          return;
+        }
+        logoutIntentRef.current = false;
+      }
+
+      if (explicitLoginIntentRef.current) {
+        deferredSessionChangeRef.current = true;
+        return;
+      }
+
+      synchronizeAfterRemoteSessionChange();
+    }
+
+    const unsubscribe = lifecycleChannel.subscribe(handleLifecycleEvent);
     const generation = ++operationGenerationRef.current;
 
     async function restoreSession() {
@@ -238,13 +369,6 @@ export function AuthenticationProvider({
         if (!isCurrentOperation(subscribed, generation)) {
           return;
         }
-
-        setState({
-          accessToken: refreshed.accessToken,
-          accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-          currentUser: null,
-          status: 'initializing',
-        });
 
         const currentUser = await getCurrentUser(refreshed.accessToken);
         if (!isCurrentOperation(subscribed, generation)) {
@@ -295,9 +419,66 @@ export function AuthenticationProvider({
 
     return () => {
       subscribed = false;
+      unsubscribe();
+      lifecycleChannel.close();
+      if (lifecycleChannelRef.current === lifecycleChannel) {
+        lifecycleChannelRef.current = null;
+      }
       mountedRef.current = false;
     };
-  }, [clearAuthentication, refreshCoordinator]);
+  }, [
+    clearAuthentication,
+    lifecycleChannelFactory,
+    refreshCoordinator,
+    synchronizeAfterRemoteSessionChange,
+  ]);
+
+  useEffect(() => {
+    const pending = pendingLifecycleBroadcastRef.current;
+    if (!pending || pending.generation !== operationGenerationRef.current) {
+      return;
+    }
+
+    const canPublish =
+      (pending.type === 'session-changed' &&
+        state.status === 'authenticated' &&
+        Boolean(state.accessToken) &&
+        Boolean(state.currentUser)) ||
+      (pending.type === 'logout' && state.status === 'unauthenticated');
+    if (!canPublish) {
+      return;
+    }
+
+    pendingLifecycleBroadcastRef.current = null;
+    const lifecycleChannel = lifecycleChannelRef.current;
+    if (!lifecycleChannel) {
+      clearAuthentication('lifecycle-error');
+      return;
+    }
+
+    try {
+      if (pending.type === 'session-changed') {
+        lifecycleChannel.publishSessionChanged();
+      } else {
+        lifecycleChannel.publishLogout();
+      }
+    } catch {
+      clearAuthentication('lifecycle-error');
+    }
+  }, [clearAuthentication, state.accessToken, state.currentUser, state.status]);
+
+  useEffect(() => {
+    if (
+      !deferredSessionChangeRef.current ||
+      explicitLoginIntentRef.current ||
+      logoutIntentRef.current
+    ) {
+      return;
+    }
+
+    deferredSessionChangeRef.current = false;
+    synchronizeAfterRemoteSessionChange();
+  }, [state.status, synchronizeAfterRemoteSessionChange]);
 
   const runProactiveRefresh = useCallback((): Promise<void> => {
     const snapshot = stateRef.current;
@@ -320,37 +501,51 @@ export function AuthenticationProvider({
     const originalExpiration = Date.parse(snapshot.accessTokenExpiresAt);
 
     const refreshOperation = (async () => {
+      let refreshSucceeded = false;
       try {
         const refreshed = await refreshCoordinator.refresh();
-        requireFutureAccessTokenExpiration(refreshed.accessTokenExpiresAt);
+        const expiresAt = requireFutureAccessTokenExpiration(refreshed.accessTokenExpiresAt);
+        refreshSucceeded = true;
 
         if (!isCurrentAuthenticatedToken(generation, originalToken)) {
+          return;
+        }
+
+        const currentUser = await getCurrentUser(refreshed.accessToken);
+        if (!isCurrentAuthenticatedToken(generation, originalToken)) {
+          return;
+        }
+
+        if (expiresAt <= Date.now()) {
+          clearAuthentication('error');
           return;
         }
 
         indeterminateTokenRef.current = null;
         setRefreshScheduleMode('proactive');
-        setState((current) =>
-          current.status === 'authenticated' && current.accessToken === originalToken
-            ? {
-                ...current,
-                accessToken: refreshed.accessToken,
-                accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-              }
-            : current,
-        );
+        setState({
+          accessToken: refreshed.accessToken,
+          accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
+          currentUser: currentUser.user,
+          status: 'authenticated',
+        });
       } catch (error) {
         if (!isCurrentAuthenticatedToken(generation, originalToken)) {
           return;
         }
 
-        if (isInvalidRefreshSession(error)) {
+        if (isInvalidRefreshSession(error) || isAuthenticationRequired(error)) {
           clearAuthentication('unauthenticated');
           return;
         }
 
         if (error instanceof AuthCoordinationUnavailableError) {
           clearAuthentication('coordination-error');
+          return;
+        }
+
+        if (refreshSucceeded) {
+          clearAuthentication('error');
           return;
         }
 
@@ -373,6 +568,14 @@ export function AuthenticationProvider({
 
     return refreshOperation;
   }, [clearAuthentication, refreshCoordinator]);
+
+  function isCurrentStatus(generation: number, status: AuthenticationStatus) {
+    return (
+      mountedRef.current &&
+      operationGenerationRef.current === generation &&
+      stateRef.current.status === status
+    );
+  }
 
   function isCurrentAuthenticatedToken(generation: number, accessToken: string) {
     const current = stateRef.current;
@@ -468,7 +671,7 @@ export function AuthenticationProvider({
     () => ({
       ...state,
       beginAuthentication,
-      stageAccessToken,
+      isAuthenticationOperationCurrent,
       completeAuthentication,
       failAuthentication,
       continueUnauthenticated,
@@ -478,7 +681,7 @@ export function AuthenticationProvider({
     [
       state,
       beginAuthentication,
-      stageAccessToken,
+      isAuthenticationOperationCurrent,
       completeAuthentication,
       failAuthentication,
       continueUnauthenticated,

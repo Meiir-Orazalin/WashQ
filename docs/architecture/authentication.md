@@ -10,7 +10,9 @@ memory-only authentication state. Version 1.2.7 adds controlled startup
 restoration and same-document proactive refresh. Version 1.2.8 adds coordinated
 frontend logout and performs the final authentication release review. Version
 1.2.9 serializes browser login, refresh, and logout cookie mutations across
-same-origin tabs with a Web Lock. Global guards and protected business endpoints
+same-origin tabs with a Web Lock. Version 1.3.1 adds non-sensitive cross-tab
+lifecycle notification and makes refresh plus `/auth/me` the identity authority
+for every frontend refresh path. Global guards and protected business endpoints
 remain absent.
 
 ## Boundaries
@@ -207,21 +209,28 @@ browser accepts the backend-managed HttpOnly refresh cookie. `/auth/me` uses
 `credentials: "omit"` and an explicit Authorization header, so that verification
 depends only on the staged access token. The login response user is not treated
 as final; only the contract-validated `/auth/me` user completes authentication.
-If verification fails, the token, expiration, and user are cleared and no
-refresh attempt occurs.
+The token remains staged in the explicit operation until the provider atomically
+commits it with its expiration and verified user. After that React commit, the
+tab broadcasts one non-sensitive `session-changed` lifecycle event. Failed,
+stale, or unverified login work is never broadcast. If verification fails, the
+token, expiration, and user are cleared and no refresh attempt occurs.
 
 Access tokens are never persisted to Web Storage, IndexedDB, cookies, URLs,
 React Query data, or rendered markup. See
 [ADR 0010](../decisions/0010-memory-only-browser-access-tokens.md).
+The authenticated confirmation UI can clear only this tab's memory and return
+to the login form for an explicit sign-in with another account. It does not
+mutate the shared cookie or emit a lifecycle event until the new login has
+succeeded and been verified.
 
 ## Frontend restoration and refresh
 
 On the first client mount, the provider begins in `initializing` and renders a
 neutral status instead of the login form. It asks one non-React coordinator to
-rotate the HttpOnly cookie through `POST /auth/refresh`, stages the validated
-access token only in provider memory, and verifies the current PostgreSQL user
-through credential-omitting `GET /auth/me`. Only both successes transition to
-`authenticated`.
+rotate the HttpOnly cookie through `POST /auth/refresh`, keeps the validated
+access token staged in that operation, and verifies the current PostgreSQL user
+through credential-omitting `GET /auth/me`. Only both successes atomically
+commit token, expiration, and user and transition to `authenticated`.
 
 The coordinator retains only the active Promise and gives concurrent callers
 that same Promise. It clears the reference after settlement. The refresh
@@ -235,18 +244,22 @@ results from overwriting a newer explicit login.
 
 The provider schedules one timeout from the server-provided
 `accessTokenExpiresAt`, normally 60 seconds before expiration. It never decodes
-the JWT. A successful routine refresh replaces only the in-memory token and
-expiration, retains the verified user, and schedules the next timeout without
-calling `/me`. When a hidden document becomes visible, it refreshes only if the
+the JWT. Every successful startup, proactive, visibility, and remote-event
+refresh calls `/auth/me` with the new token before state changes. Routine
+refresh keeps the previous matched token/user pair while the new token is
+staged, then atomically replaces token, expiration, and user and schedules the
+next timeout. When a hidden document becomes visible, it refreshes only if the
 token is within that safety window and no prior outcome is indeterminate.
 
 `401 INVALID_REFRESH_SESSION` clears memory and becomes `unauthenticated`.
 Startup Origin, network, server, JSON, or contract failures become a
-user-recoverable `error` without retry. After an indeterminate proactive
-failure, the still-valid token and user remain usable until that token expires;
-the provider suppresses further automatic rotation attempts for that token and
-then clears memory into `error`. This avoids blindly replaying a rotation that
-may have committed server-side.
+user-recoverable `error` without retry. After an indeterminate
+refresh-transport failure, the still-valid matched token and user remain usable
+until that token expires; the provider suppresses further automatic rotation
+attempts for that token and then clears memory into `error`. If refresh succeeds
+but `/auth/me` fails, the new token is discarded and local state fails closed
+rather than committing an unverified identity. No automatic retry follows
+either failure.
 
 The lock stores no auth state and carries no token or user metadata. It wraps
 only login, refresh, and logout; `/me` remains an explicit Bearer request outside
@@ -274,19 +287,20 @@ and generation checks prevent stale restoration, login, or proactive-refresh
 work from rebuilding authenticated state. Logout never calls `/auth/me` or
 starts another refresh.
 
-The final statuses are `initializing`, `unauthenticated`, `authenticating`,
-`authenticated`, `logging-out`, `logout-error`, `coordination-error`, and
-`error`. `logout-error`
+The statuses are `initializing`, `synchronizing`, `unauthenticated`,
+`authenticating`, `authenticated`, `logging-out`, `logout-error`,
+`coordination-error`, `lifecycle-error`, and `error`. `logout-error`
 means browser memory is already clear but server revocation could not be
 confirmed. Origin, network, server, and invalid-response failures are not
 retried automatically. The user can retry the idempotent logout directly, or
 continue to a clean login form with an explicit warning that reloading before a
 successful retry may restore the still-cookie-backed session.
 
-No cross-tab logout event is broadcast. Another open tab keeps its existing
-memory-only access token until expiration and remains subject to the stateless
-access-token semantics described above. Because the browser cookie is shared,
-its next refresh fails after successful server logout and clears that tab.
+After backend logout returns 204 and local unauthenticated state is committed,
+the sender broadcasts one non-sensitive `logout` event. Receiving tabs
+immediately invalidate operation generations, clear memory and timers, and
+become unauthenticated without calling logout, refresh, or `/auth/me`. A failed
+or indeterminate backend logout is not broadcast as confirmed.
 
 ## Cross-tab cookie-mutation coordination
 
@@ -305,16 +319,39 @@ cannot race an old refresh, and logout waits for both local refresh idle and
 cross-tab lock ownership before revoking the current cookie.
 
 One browser cookie jar cannot preserve different long-lived refresh identities
-per tab. The newest successful login owns the shared refresh cookie; other tabs
-may retain previously issued memory-only access tokens until expiration. Their
-next cookie rotation follows that newest login. Routine refresh intentionally
-does not reload `/me` in Version 1.2, so an already-open tab's displayed public
-user can lag until reload after a different-account login. No protected
-business action exists in this version; account-switch notification or
-reverification is required before those actions are introduced.
+per tab. The newest successful explicit login owns the shared refresh cookie.
+After its `/auth/me` verification and local commit, the sender publishes:
 
-Cross-tab logout notification is not added. See
-[ADR 0011](../decisions/0011-web-lock-for-auth-cookie-mutations.md) and the
+```json
+{ "type": "session-changed", "sourceId": "ephemeral-per-document-id" }
+```
+
+Receiving tabs clear their old token, expiration, user, and timers immediately,
+enter `synchronizing`, and reuse the same `RefreshCoordinator`. Its refresh
+still takes the Web Lock, so every receiving document rotates sequentially and
+obtains its own memory-only token. `/auth/me` establishes the authoritative
+user before token, expiration, and user are committed together. Remote work
+never rebroadcasts, and same-user login follows the same path because event
+metadata carries no identity.
+
+A confirmed local logout publishes:
+
+```json
+{ "type": "logout", "sourceId": "ephemeral-per-document-id" }
+```
+
+Remote logout clears local state without another server request. Events never
+contain credentials, cookies, user data, session or family identifiers, API
+responses, or timestamps. The ephemeral source ID exists only to ignore the
+sender's event and is not persisted. Operation generations ensure stale remote
+work cannot overwrite a newer explicit login, logout, or lifecycle event.
+
+`BroadcastChannel` is feature-detected and is not a mutex or state store.
+Unsupported browsers fail closed with generic lifecycle-coordination UI; there
+is no localStorage, polling, credential-sharing, or custom-bus fallback. See
+[ADR 0011](../decisions/0011-web-lock-for-auth-cookie-mutations.md),
+[ADR 0012](../decisions/0012-non-sensitive-cross-tab-auth-lifecycle-events.md),
+the [frontend lifecycle](frontend-authentication-lifecycle.md), and the
 [supported-browser policy](supported-browsers.md).
 
 ## Configuration

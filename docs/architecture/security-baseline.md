@@ -93,8 +93,13 @@ before they are implemented.
   the new memory-only Bearer token.
 - React Strict Mode subscribers share the in-flight rotation; unmounted or
   stale restoration work cannot overwrite a newer explicit login.
+- Startup, proactive, visibility, and remote-event refreshes keep the returned
+  access token staged until credential-omitting `/auth/me` returns the
+  contract-validated current database user. Token, expiration, and user then
+  commit atomically; a new token is never paired with the old user.
 - Proactive refresh uses the server-provided expiration timestamp, one timeout,
-  and a 60-second safety window. Browser code does not decode JWTs.
+  and a 60-second safety window. Browser code does not decode JWTs or infer
+  identity from prior state or token claims.
 - Invalid refresh state clears frontend memory without retry. Ambiguous
   rotation failures are never retried automatically; a still-valid access token
   is retained only until its known expiration.
@@ -108,6 +113,20 @@ before they are implemented.
 - Unconfirmed logout never restores local credentials or retries automatically.
   Manual retry calls logout directly without refresh; its warning does not
   expose Origin, cookie, token, or server details.
+- Explicit verified login publishes only `session-changed` plus an ephemeral
+  per-document source ID. Confirmed 204 logout publishes only `logout` plus that
+  source ID. Failed, stale, automatic, and remotely triggered work is not
+  broadcast.
+- Cross-tab lifecycle payloads contain no access token, refresh token, cookie,
+  user or profile data, password, API response, session ID, or family ID. The
+  source ID is memory-only and carries no authentication authority.
+- Remote session change removes the old token and user before coordinated
+  refresh plus `/auth/me`; remote logout removes memory and timers without
+  logout, refresh, or `/auth/me` requests. Operation generations reject late
+  results.
+- `BroadcastChannel` is notification only. It stores no authentication state,
+  provides no mutual exclusion, closes with the provider, and has no
+  localStorage, polling, or credential-sharing fallback.
 
 ## Explicit future boundaries
 
@@ -122,6 +141,9 @@ hardening arrive in later versions when their flows exist.
 - Missing or failed Web Locks capability fails closed with a sanitized
   coordination state; no unlocked cookie mutation or storage-based mutex is
   attempted.
+- Missing or failed BroadcastChannel capability also fails closed before
+  frontend authentication. Immediate cross-tab identity synchronization is
+  advertised only for the verified supported-browser matrix.
 - The cross-tab lock shares no access token, refresh token, cookie, user,
   session, or family data. Access tokens remain per-tab and memory-only.
 - Lock waiting causes neither an authentication error nor an automatic retry.

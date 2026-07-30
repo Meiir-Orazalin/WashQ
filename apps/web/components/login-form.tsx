@@ -77,6 +77,29 @@ export function LoginForm() {
     );
   }
 
+  if (authentication.status === 'synchronizing') {
+    return (
+      <section className="session-status" role="status" aria-live="polite" aria-busy="true">
+        <p className="eyebrow">Session update</p>
+        <h2>Updating your session…</h2>
+        <p>Please wait while we securely update this page’s session.</p>
+      </section>
+    );
+  }
+
+  if (authentication.status === 'lifecycle-error') {
+    return (
+      <section className="session-status session-status--error" role="alert">
+        <p className="eyebrow">Session updates unavailable</p>
+        <h2>Your browser cannot safely update sessions across tabs</h2>
+        <p>Please update to a supported browser, then reload this page before signing in.</p>
+        <button className="submit-button" type="button" onClick={() => window.location.reload()}>
+          Reload page
+        </button>
+      </section>
+    );
+  }
+
   if (authentication.status === 'coordination-error') {
     return (
       <section className="session-status session-status--error" role="alert">
@@ -108,6 +131,13 @@ export function LoginForm() {
         <p className="authenticated-email">{authentication.currentUser.email}</p>
         <p>Full customer dashboard functionality will be added in a later version.</p>
         <div className="authentication-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={authentication.continueUnauthenticated}
+          >
+            Sign in with another account
+          </button>
           <button
             className="submit-button"
             type="button"
@@ -172,8 +202,8 @@ export function LoginForm() {
     return (
       <section className="session-status session-status--error" role="alert">
         <p className="eyebrow">Session unavailable</p>
-        <h2>We could not restore your session</h2>
-        <p>We could not restore your session. You can continue by signing in again.</p>
+        <h2>We could not update your session</h2>
+        <p>We could not safely update your session. You can continue by signing in again.</p>
         <button
           className="submit-button"
           type="button"

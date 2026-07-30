@@ -5,6 +5,7 @@ import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LoginForm } from '@/components/login-form';
 import { AuthCoordinationUnavailableError } from '@/lib/auth-cookie-mutation-lock';
+import type { AuthLifecycleChannel, AuthLifecycleEvent } from '@/lib/auth-lifecycle-channel';
 import { ApiClientError } from '@/lib/api-client';
 import { createRefreshCoordinator, type RefreshCoordinator } from '@/lib/refresh-coordinator';
 import { AuthenticationProvider, useAuthentication } from './authentication-provider';
@@ -16,6 +17,27 @@ const user: LoginUser = {
   email: 'meiir@example.com',
 };
 const defaultLockManager = navigator.locks;
+
+class TestAuthLifecycleChannel implements AuthLifecycleChannel {
+  readonly publishSessionChanged = vi.fn();
+  readonly publishLogout = vi.fn();
+  readonly close = vi.fn();
+  private readonly subscribers = new Set<(event: AuthLifecycleEvent) => void>();
+
+  subscribe(listener: (event: AuthLifecycleEvent) => void) {
+    this.subscribers.add(listener);
+    return () => {
+      this.subscribers.delete(listener);
+    };
+  }
+
+  emit(type: AuthLifecycleEvent['type']) {
+    const event = { type, sourceId: 'remote-document' } satisfies AuthLifecycleEvent;
+    for (const subscriber of this.subscribers) {
+      subscriber(event);
+    }
+  }
+}
 
 function futureTimestamp(milliseconds = 15 * 60_000) {
   return new Date(Date.now() + milliseconds).toISOString();
@@ -36,10 +58,10 @@ function apiError(status: number, code: string) {
   return new ApiClientError('Sanitized API failure', status, code);
 }
 
-function currentUserResponse(status = 200) {
+function currentUserResponse(status = 200, responseUser: LoginUser = user) {
   const payload =
     status === 200
-      ? { user }
+      ? { user: responseUser }
       : {
           error: { code: 'AUTHENTICATION_REQUIRED', message: 'Authentication is required' },
           timestamp: new Date().toISOString(),
@@ -52,10 +74,25 @@ function currentUserResponse(status = 200) {
   });
 }
 
+const otherUser: LoginUser = {
+  id: '00e6bf3c-e971-43f8-ac67-90776016f24d',
+  firstName: 'Other',
+  lastName: 'Customer',
+  email: 'other@example.com',
+};
+
 function renderProvider(
   refreshCoordinator: Pick<RefreshCoordinator, 'refresh'> &
     Partial<Pick<RefreshCoordinator, 'waitForIdle'>>,
-  { strict = false, withLoginForm = false }: { strict?: boolean; withLoginForm?: boolean } = {},
+  {
+    strict = false,
+    withLoginForm = false,
+    lifecycleChannel,
+  }: {
+    strict?: boolean;
+    withLoginForm?: boolean;
+    lifecycleChannel?: AuthLifecycleChannel;
+  } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   const coordinator: RefreshCoordinator = {
@@ -64,7 +101,10 @@ function renderProvider(
   };
   const content = (
     <QueryClientProvider client={client}>
-      <AuthenticationProvider refreshCoordinator={coordinator}>
+      <AuthenticationProvider
+        refreshCoordinator={coordinator}
+        {...(lifecycleChannel ? { lifecycleChannelFactory: () => lifecycleChannel } : {})}
+      >
         {withLoginForm ? <LoginForm /> : null}
         <AuthenticationProbe />
       </AuthenticationProvider>
@@ -83,6 +123,13 @@ function AuthenticationProbe() {
         data-testid="authentication-state"
         data-status={authentication.status}
         data-access-token={authentication.accessToken ? 'present' : 'absent'}
+        data-token-kind={
+          authentication.accessToken === 'explicit-login-token'
+            ? 'explicit'
+            : authentication.accessToken
+              ? 'refreshed'
+              : 'absent'
+        }
         data-expiration={authentication.accessTokenExpiresAt ?? 'absent'}
         data-user={authentication.currentUser?.email ?? 'absent'}
       />
@@ -90,12 +137,12 @@ function AuthenticationProbe() {
         type="button"
         onClick={() => {
           const generation = authentication.beginAuthentication();
-          authentication.stageAccessToken(
+          if (generation === null) {
+            return;
+          }
+          authentication.completeAuthentication(
             'explicit-login-token',
             futureTimestamp(120_000),
-            generation,
-          );
-          authentication.completeAuthentication(
             {
               ...user,
               firstName: 'Explicit',
@@ -152,8 +199,9 @@ describe('AuthenticationProvider restoration', () => {
     };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(currentUserResponse());
     vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
 
-    renderProvider(coordinator);
+    renderProvider(coordinator, { lifecycleChannel });
 
     await waitFor(() =>
       expect(screen.getByTestId('authentication-state')).toHaveAttribute(
@@ -171,6 +219,8 @@ describe('AuthenticationProvider restoration', () => {
       },
     });
     expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', user.email);
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+    expect(lifecycleChannel.publishLogout).not.toHaveBeenCalled();
   });
 
   it('treats invalid refresh as unauthenticated and never calls /me', async () => {
@@ -224,7 +274,7 @@ describe('AuthenticationProvider restoration', () => {
     renderProvider(coordinator, { withLoginForm: true });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'We could not restore your session. You can continue by signing in again.',
+      'We could not safely update your session. You can continue by signing in again.',
     );
     expect(coordinator.refresh).toHaveBeenCalledTimes(1);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -377,6 +427,368 @@ describe('AuthenticationProvider restoration', () => {
   });
 });
 
+describe('AuthenticationProvider cross-tab lifecycle synchronization', () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(document, 'cookie');
+  });
+
+  async function renderLocallyAuthenticated(
+    refresh: RefreshCoordinator['refresh'],
+    lifecycleChannel: TestAuthLifecycleChannel,
+    withLoginForm = false,
+  ) {
+    renderProvider(
+      { refresh },
+      {
+        lifecycleChannel,
+        withLoginForm,
+      },
+    );
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await flushMicrotasks();
+    lifecycleChannel.publishSessionChanged.mockClear();
+  }
+
+  it('clears the old identity immediately, then refreshes and verifies the authoritative user', async () => {
+    let resolveRefresh: ((response: RefreshResponse) => void) | undefined;
+    const order: string[] = [];
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockImplementationOnce(
+        () =>
+          new Promise<RefreshResponse>((resolve) => {
+            order.push('refresh');
+            resolveRefresh = resolve;
+          }),
+      );
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => {
+      order.push('me');
+      return currentUserResponse(200, otherUser);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    await renderLocallyAuthenticated(refresh, lifecycleChannel, true);
+    expect(screen.getByText(user.email)).toBeVisible();
+
+    act(() => {
+      lifecycleChannel.emit('session-changed');
+    });
+
+    expect(screen.getByRole('heading', { name: 'Updating your session…' })).toBeVisible();
+    expect(screen.queryByText(user.email)).not.toBeInTheDocument();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    resolveRefresh?.(refreshResponse('remote-account-token'));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-status',
+        'authenticated',
+      ),
+    );
+
+    expect(order).toEqual(['refresh', 'me']);
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-user',
+      otherUser.email,
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-token-kind',
+      'refreshed',
+    );
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'refresh 401',
+      () => Promise.reject(invalidRefreshSession()),
+      vi.fn<typeof fetch>(),
+      'unauthenticated',
+    ],
+    [
+      '/me 401',
+      () => Promise.resolve(refreshResponse('unverified-remote-token')),
+      vi.fn<typeof fetch>().mockResolvedValue(currentUserResponse(401)),
+      'unauthenticated',
+    ],
+    [
+      'an indeterminate refresh failure',
+      () => Promise.reject(new ApiClientError('The refresh request could not be completed')),
+      vi.fn<typeof fetch>(),
+      'error',
+    ],
+  ])(
+    'fails closed for %s without retaining or rebroadcasting credentials',
+    async (_name, remoteResult, fetchMock, expectedStatus) => {
+      const refresh = vi
+        .fn<RefreshCoordinator['refresh']>()
+        .mockRejectedValueOnce(invalidRefreshSession())
+        .mockImplementationOnce(remoteResult);
+      vi.stubGlobal('fetch', fetchMock);
+      const lifecycleChannel = new TestAuthLifecycleChannel();
+      await renderLocallyAuthenticated(refresh, lifecycleChannel);
+
+      act(() => {
+        lifecycleChannel.emit('session-changed');
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+          'data-status',
+          expectedStatus,
+        ),
+      );
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-access-token',
+        'absent',
+      );
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+      expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+      expect(refresh).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('does not let a stale remote synchronization overwrite a newer explicit login', async () => {
+    let resolveRemoteRefresh: ((response: RefreshResponse) => void) | undefined;
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockImplementationOnce(
+        () =>
+          new Promise<RefreshResponse>((resolve) => {
+            resolveRemoteRefresh = resolve;
+          }),
+      );
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    await renderLocallyAuthenticated(refresh, lifecycleChannel);
+
+    act(() => {
+      lifecycleChannel.emit('session-changed');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'authenticated',
+    );
+
+    resolveRemoteRefresh?.(refreshResponse('stale-remote-token'));
+    await flushMicrotasks();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-token-kind',
+      'explicit',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', user.email);
+  });
+
+  it('coalesces repeated remote events without unbounded refresh or /me work', async () => {
+    let resolveRemoteRefresh: ((response: RefreshResponse) => void) | undefined;
+    const requestRefresh = vi
+      .fn<() => Promise<RefreshResponse>>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockImplementationOnce(
+        () =>
+          new Promise<RefreshResponse>((resolve) => {
+            resolveRemoteRefresh = resolve;
+          }),
+      );
+    const coordinator = createRefreshCoordinator(requestRefresh);
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(currentUserResponse(200, otherUser));
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    await renderLocallyAuthenticated(coordinator.refresh, lifecycleChannel);
+
+    act(() => {
+      for (let event = 0; event < 20; event += 1) {
+        lifecycleChannel.emit('session-changed');
+      }
+    });
+
+    expect(requestRefresh).toHaveBeenCalledTimes(2);
+    resolveRemoteRefresh?.(refreshResponse('coalesced-remote-token'));
+    await waitFor(() =>
+      expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+        'data-status',
+        'authenticated',
+      ),
+    );
+
+    expect(requestRefresh).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before refresh when BroadcastChannel is unavailable', async () => {
+    const refresh = vi.fn<RefreshCoordinator['refresh']>();
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <AuthenticationProvider
+          refreshCoordinator={{
+            refresh,
+            waitForIdle: vi.fn().mockResolvedValue(undefined),
+          }}
+          lifecycleChannelFactory={() => null}
+        >
+          <LoginForm />
+          <AuthenticationProbe />
+        </AuthenticationProvider>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Your browser cannot safely update sessions across tabs',
+      }),
+    ).toBeVisible();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
+  });
+
+  it('closes the lifecycle channel when the provider unmounts', async () => {
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    const rendered = renderProvider(
+      { refresh: vi.fn().mockRejectedValue(invalidRefreshSession()) },
+      { lifecycleChannel },
+    );
+    await flushMicrotasks();
+
+    rendered.unmount();
+
+    expect(lifecycleChannel.close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AuthenticationProvider remote logout', () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('clears memory and timers immediately without logout, refresh, /me, or rebroadcast', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession());
+    const waitForIdle = vi.fn().mockResolvedValue(undefined);
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    renderProvider({ refresh, waitForIdle }, { lifecycleChannel });
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await flushMicrotasks();
+    lifecycleChannel.publishSessionChanged.mockClear();
+    expect(vi.getTimerCount()).toBe(1);
+
+    act(() => {
+      lifecycleChannel.emit('logout');
+    });
+
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-expiration', 'absent');
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+    expect(vi.getTimerCount()).toBe(0);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(waitForIdle).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(lifecycleChannel.publishLogout).not.toHaveBeenCalled();
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+  });
+
+  it('prevents a late local refresh from restoring authentication after remote logout', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    let resolveRefresh: ((response: RefreshResponse) => void) | undefined;
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockImplementationOnce(
+        () =>
+          new Promise<RefreshResponse>((resolve) => {
+            resolveRefresh = resolve;
+          }),
+      );
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    renderProvider({ refresh }, { lifecycleChannel });
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(refresh).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      lifecycleChannel.emit('logout');
+    });
+    resolveRefresh?.(refreshResponse('late-refresh-after-remote-logout'));
+    await flushMicrotasks();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('keeps an already unauthenticated tab stable', async () => {
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession());
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    renderProvider({ refresh }, { lifecycleChannel });
+    await flushMicrotasks();
+
+    act(() => {
+      lifecycleChannel.emit('logout');
+    });
+    await flushMicrotasks();
+
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(lifecycleChannel.publishLogout).not.toHaveBeenCalled();
+  });
+});
+
 describe('AuthenticationProvider refresh scheduling and visibility', () => {
   afterEach(() => {
     cleanup();
@@ -392,6 +804,7 @@ describe('AuthenticationProvider refresh scheduling and visibility', () => {
   ) {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(currentUserResponse()));
     const refresh = vi
       .fn<() => Promise<RefreshResponse>>()
       .mockRejectedValueOnce(invalidRefreshSession());
@@ -429,6 +842,86 @@ describe('AuthenticationProvider refresh scheduling and visibility', () => {
       'authenticated',
     );
     expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it('keeps the previous pair until proactive /me verification and commits the new pair together', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    let resolveCurrentUser: ((response: Response) => void) | undefined;
+    const currentUserPending = new Promise<Response>((resolve) => {
+      resolveCurrentUser = resolve;
+    });
+    const fetchMock = vi.fn<typeof fetch>().mockReturnValue(currentUserPending);
+    vi.stubGlobal('fetch', fetchMock);
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockResolvedValueOnce(refreshResponse('proactive-other-account-token', 180_000));
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    renderProvider({ refresh }, { lifecycleChannel });
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await flushMicrotasks();
+    lifecycleChannel.publishSessionChanged.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      credentials: 'omit',
+      headers: {
+        Authorization: 'Bearer proactive-other-account-token',
+      },
+    });
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-token-kind',
+      'explicit',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', user.email);
+
+    resolveCurrentUser?.(currentUserResponse(200, otherUser));
+    await flushMicrotasks();
+
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-token-kind',
+      'refreshed',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-user',
+      otherUser.email,
+    );
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
+  });
+
+  it('clears authentication when proactive refresh succeeds but /me fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(currentUserResponse(401));
+    vi.stubGlobal('fetch', fetchMock);
+    const refresh = vi
+      .fn<RefreshCoordinator['refresh']>()
+      .mockRejectedValueOnce(invalidRefreshSession())
+      .mockResolvedValueOnce(refreshResponse('unverified-proactive-token', 180_000));
+    renderProvider({ refresh });
+    await flushMicrotasks();
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'unauthenticated',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('clears authentication and scheduling after an invalid proactive session', async () => {
@@ -484,6 +977,8 @@ describe('AuthenticationProvider refresh scheduling and visibility', () => {
   it('refreshes once when visibility returns near expiration and ignores far-away visibility', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-28T12:00:00.000Z'));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(currentUserResponse());
+    vi.stubGlobal('fetch', fetchMock);
     let resolveProactive: ((response: RefreshResponse) => void) | undefined;
     const refresh = vi
       .fn<() => Promise<RefreshResponse>>()
@@ -514,6 +1009,12 @@ describe('AuthenticationProvider refresh scheduling and visibility', () => {
     resolveProactive?.(refreshResponse('visibility-rotated-token', 180_000));
     await flushMicrotasks();
     expect(refresh).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: {
+        Authorization: 'Bearer visibility-rotated-token',
+      },
+    });
     expect(vi.getTimerCount()).toBe(1);
   });
 
@@ -580,10 +1081,12 @@ describe('AuthenticationProvider logout coordination', () => {
       order.push('local-refresh-idle');
     });
     const refresh = vi.fn().mockRejectedValue(invalidRefreshSession());
-    renderProvider({ refresh, waitForIdle }, { withLoginForm: true });
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    renderProvider({ refresh, waitForIdle }, { withLoginForm: true, lifecycleChannel });
     await flushMicrotasks();
     fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
     await flushMicrotasks();
+    lifecycleChannel.publishSessionChanged.mockClear();
     const timerCountBeforeLogout = vi.getTimerCount();
     expect(timerCountBeforeLogout).toBeGreaterThan(0);
 
@@ -602,6 +1105,7 @@ describe('AuthenticationProvider logout coordination', () => {
     expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
     expect(vi.getTimerCount()).toBeLessThan(timerCountBeforeLogout);
     expect(waitForIdle).toHaveBeenCalledTimes(1);
+    expect(lifecycleChannel.publishLogout).not.toHaveBeenCalled();
 
     await flushMicrotasks();
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -620,6 +1124,8 @@ describe('AuthenticationProvider logout coordination', () => {
       'logout-request',
       'lock-released',
     ]);
+    expect(lifecycleChannel.publishLogout).toHaveBeenCalledTimes(1);
+    expect(lifecycleChannel.publishSessionChanged).not.toHaveBeenCalled();
   });
 
   it('waits for an in-flight refresh and ignores its late token before logging out', async () => {

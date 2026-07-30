@@ -60,12 +60,22 @@ processing settles before release. This serializes every operation that can set,
 rotate, or clear the cookie across tabs. `/auth/me`, registration, health, and
 other non-cookie-mutating requests do not take this lock.
 
-The frontend fails closed when Web Locks are unavailable; it sends no unlocked
-cookie mutation. Tabs retain independent memory-only access tokens, but the
-browser has one shared persistent refresh cookie. Sequential restoration may
-therefore rotate the family once per tab. The latest explicit login determines
-the cookie-backed identity for future refreshes; open tabs can retain an older
-memory-only access token and display until expiration or reload. Protected
-business actions must not be added before the account-switch behavior is
-revalidated. See
-[ADR 0011](../decisions/0011-web-lock-for-auth-cookie-mutations.md).
+The frontend fails closed when Web Locks or the required cross-tab lifecycle
+channel are unavailable; it sends no unlocked cookie mutation and uses no
+storage-backed fallback. Tabs retain independent memory-only access tokens, but
+the browser has one shared persistent refresh cookie. Sequential restoration
+or remote synchronization may therefore rotate the family once per tab.
+
+The latest explicit login determines the cookie-backed identity. After verified
+login state is committed, its tab sends only a non-sensitive
+`session-changed` notification. Receiving tabs immediately clear their prior
+memory and rotate the current shared cookie under the existing Web Lock, then
+call `/auth/me` before committing their own token and user. Every other
+successful refresh path follows the same refresh-plus-`/auth/me` identity rule.
+A confirmed 204 logout sends only a `logout` notification; receiving tabs clear
+memory without another cookie request.
+
+Lifecycle events never include cookie values, tokens, user data, or session
+metadata. JavaScript still never reads the cookie. See
+[ADR 0011](../decisions/0011-web-lock-for-auth-cookie-mutations.md) and
+[ADR 0012](../decisions/0012-non-sensitive-cross-tab-auth-lifecycle-events.md).
