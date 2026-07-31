@@ -9,6 +9,12 @@
 7. Open a pull request describing intent, architecture impact, test evidence,
    migration/rollback considerations, and known risks.
 
+Authentication changes additionally run the built-app Chromium smoke suite on
+pull requests. Pushes to `main`, manual runs, and the bounded weekly schedule
+run the full Chromium/WebKit authentication lifecycle matrix. A failed focused
+browser run must include safe artifact evidence and successful namespaced
+fixture cleanup; reruns do not replace investigation of the first failure.
+
 Commits should be focused and use imperative summaries. Never commit `.env`,
 database dumps, credentials, access tokens, generated Prisma Client output,
 build output, or test artifacts.

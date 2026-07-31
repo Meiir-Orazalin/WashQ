@@ -101,3 +101,17 @@ The channel is not an authentication store. It closes on provider cleanup,
 ignores self-originated messages, rejects malformed or extended payloads, and
 contains no credentials, user data, session metadata, API responses, or
 timestamps. See [ADR 0012](../decisions/0012-non-sensitive-cross-tab-auth-lifecycle-events.md).
+
+## Document termination
+
+Version 1.3.2 adds no state or production transition. The qualified browser
+matrix verifies the existing behavior when a document closes or navigates:
+queued Web Lock requests disappear, held locks are released, provider cleanup
+closes the lifecycle channel, and no closed document can commit later
+authentication state. A reload during `synchronizing` starts a new provider in
+`initializing`; startup refresh plus `/auth/me` re-establishes the authoritative
+identity without retaining the old projection.
+
+These regressions cover browser-document close and navigation. They do not
+claim operating-system process crash, process suspension, device sleep, or
+machine-loss behavior.

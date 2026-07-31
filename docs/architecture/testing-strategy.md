@@ -124,6 +124,32 @@ applications with real PostgreSQL, verifies one final active refresh session
 and no family replay revocation, and compares every authenticated display with
 its Bearer-authenticated `/auth/me` result.
 
+Version 1.3.2 promotes the built API, built web application, shared browser
+cookie jar, and real PostgreSQL assertions into repeatable Playwright commands.
+The pull-request Chromium smoke covers simultaneous two-tab restoration,
+different-account synchronization, confirmed cross-tab logout, and
+refresh-versus-logout ordering. The main, manual, and bounded weekly matrix
+runs Chromium and WebKit with repeated restoration and A/B switching,
+near-expiration refresh, waiting and lock-holding page termination, close and
+reload during synchronization, and runtime BroadcastChannel failures.
+
+Live scenarios derive deterministic, per-run namespaced emails from the
+workflow run and test identity. They register through the public API, delete
+only those exact users afterward, rely on the existing cascade for sessions,
+and fail if users or sessions remain. Database assertions select counts only:
+they never select password or token hashes. Browser barriers use Web Lock
+queries, request interception, response events, and Playwright expectations;
+the live suite has one worker, zero retries, and no long timing sleeps.
+
+Credential-bearing Playwright network traces can retain Authorization headers,
+Set-Cookie values, passwords, or access-token response bodies. Live-auth traces
+therefore disable DOM snapshots, sources, and attachments, then remove network
+records and non-screenshot resources and redact input parameters before CI
+upload. A synthetic sanitizer regression verifies that policy. Failures also
+retain screenshots, video, an HTML report, and an attached method/path/status
+timeline that never records headers, bodies, queries, cookie values, or
+credentials.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are
@@ -138,4 +164,9 @@ its Bearer-authenticated `/auth/me` result.
 CI runs formatting, linting, type checking, unit tests, PostgreSQL integration
 tests, and application builds on pushes to `main` and all pull requests. CI
 deploys migrations to its disposable PostgreSQL database before integration
-tests.
+tests. The separate authentication-browser workflow runs Chromium smoke on
+pull requests and the full Chromium/WebKit matrix on `main`, manual dispatch,
+and the weekly schedule. Each job installs only its required Playwright binary,
+generates an ephemeral signing secret without logging it, waits on application
+readiness instead of sleeping, sanitizes failure artifacts, and verifies
+fixture cleanup.

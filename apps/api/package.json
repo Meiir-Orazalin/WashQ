@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude test/**/*.integration.test.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e:cleanup": "node --env-file-if-exists=../../.env test-support/auth-e2e-database.mjs cleanup-prefix",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",

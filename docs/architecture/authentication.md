@@ -12,8 +12,9 @@ frontend logout and performs the final authentication release review. Version
 1.2.9 serializes browser login, refresh, and logout cookie mutations across
 same-origin tabs with a Web Lock. Version 1.3.1 adds non-sensitive cross-tab
 lifecycle notification and makes refresh plus `/auth/me` the identity authority
-for every frontend refresh path. Global guards and protected business endpoints
-remain absent.
+for every frontend refresh path. Version 1.3.2 adds repeatable built-browser
+lifecycle and database assertions without changing production authentication
+behavior. Global guards and protected business endpoints remain absent.
 
 ## Boundaries
 
@@ -353,6 +354,22 @@ is no localStorage, polling, credential-sharing, or custom-bus fallback. See
 [ADR 0012](../decisions/0012-non-sensitive-cross-tab-auth-lifecycle-events.md),
 the [frontend lifecycle](frontend-authentication-lifecycle.md), and the
 [supported-browser policy](supported-browsers.md).
+
+## Browser lifecycle reliability
+
+Version 1.3.2 verifies the existing browser primitives rather than adding a
+second coordination mechanism. Real Chromium and WebKit documents prove that a
+queued auth mutation disappears when its waiting page closes, a held Web Lock
+is released when its document closes or navigates, and a new document can then
+restore normally. Closing during remote synchronization or `/auth/me` cannot
+commit stale provider state, while reload during synchronization falls back to
+startup refresh plus authoritative `/auth/me`.
+
+Runtime BroadcastChannel construction and publication failures retain the
+existing fail-closed lifecycle state. There is still no storage event,
+polling, credential-sharing, or unlocked mutation fallback. These tests cover
+document close and navigation only; they do not establish guarantees for an
+operating-system process crash or suspension.
 
 ## Configuration
 

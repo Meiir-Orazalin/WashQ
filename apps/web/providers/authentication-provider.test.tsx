@@ -673,6 +673,35 @@ describe('AuthenticationProvider cross-tab lifecycle synchronization', () => {
 
     expect(lifecycleChannel.close).toHaveBeenCalledTimes(1);
   });
+
+  it('fails closed and clears committed memory when lifecycle publication fails', async () => {
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    lifecycleChannel.publishSessionChanged.mockImplementation(() => {
+      throw new Error('runtime channel publication failure');
+    });
+    renderProvider(
+      { refresh: vi.fn().mockRejectedValue(invalidRefreshSession()) },
+      { lifecycleChannel, withLoginForm: true },
+    );
+    await screen.findByLabelText('Email');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Your browser cannot safely update sessions across tabs',
+      }),
+    ).toBeVisible();
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'lifecycle-error',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
+  });
 });
 
 describe('AuthenticationProvider remote logout', () => {
@@ -1372,5 +1401,39 @@ describe('AuthenticationProvider logout coordination', () => {
     expect(cookieRead).not.toHaveBeenCalled();
     expect(cookieWrite).not.toHaveBeenCalled();
     expect(document.body.innerHTML).not.toContain('explicit-login-token');
+  });
+
+  it('keeps memory clear when lifecycle publication fails after confirmed logout', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const lifecycleChannel = new TestAuthLifecycleChannel();
+    renderProvider(
+      { refresh: vi.fn().mockRejectedValue(invalidRefreshSession()) },
+      { lifecycleChannel, withLoginForm: true },
+    );
+    await screen.findByLabelText('Email');
+    fireEvent.click(screen.getByRole('button', { name: 'Complete explicit login' }));
+    await screen.findByRole('heading', { name: 'You are signed in' });
+    lifecycleChannel.publishLogout.mockImplementation(() => {
+      throw new Error('runtime channel publication failure');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Your browser cannot safely update sessions across tabs',
+      }),
+    ).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-status',
+      'lifecycle-error',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute(
+      'data-access-token',
+      'absent',
+    );
+    expect(screen.getByTestId('authentication-state')).toHaveAttribute('data-user', 'absent');
   });
 });
