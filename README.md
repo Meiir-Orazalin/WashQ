@@ -14,8 +14,10 @@ startup restoration and same-document proactive refresh without persistent
 token storage. Versions 1.2.8 and 1.2.9 add coordinated frontend logout and a
 cross-tab Web Lock for every refresh-cookie mutation. Version 1.3.1 adds
 non-sensitive cross-tab login/logout lifecycle notification and verifies
-`/auth/me` after every successful frontend refresh. Vehicles, organizations,
-and later product functionality are not implemented.
+`/auth/me` after every successful frontend refresh. Version 1.3.2 makes the
+critical built-app Chromium smoke and Chromium/WebKit browser-lifecycle matrix
+repeatable in CI with isolated PostgreSQL fixtures and safe failure artifacts.
+Vehicles, organizations, and later product functionality are not implemented.
 
 ## Repository
 
@@ -79,7 +81,9 @@ refresh from the server-provided expiration. Version 1.2.8 adds frontend logout,
 and Version 1.2.9 serializes login, refresh, and logout across tabs with one Web
 Lock. Version 1.3.1 sends only ephemeral lifecycle events between tabs; each tab
 still obtains its own token through refresh and verifies current identity
-through `/auth/me`.
+through `/auth/me`. Version 1.3.2 changes no authentication product behavior;
+it promotes the critical real-browser, real-database coordination and
+page-lifecycle checks into repeatable CI suites.
 
 ## Quality
 
@@ -90,6 +94,8 @@ pnpm typecheck
 pnpm test
 pnpm test:integration
 pnpm test:e2e
+pnpm test:e2e:auth-smoke
+pnpm test:e2e:auth-matrix
 pnpm build
 ```
 

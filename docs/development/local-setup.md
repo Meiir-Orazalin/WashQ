@@ -371,3 +371,54 @@ logout, the current cookie-backed session must have no active replacement.
 Temporarily remove `window.BroadcastChannel` in a fresh page. Confirm accessible
 unsupported-browser UI appears and no login, refresh, or logout request starts.
 Do not add a localStorage event, polling, or credential-sharing fallback.
+
+## Version 1.3.2 repeatable authentication browser checks
+
+The focused authentication suites replace the manual built-stack coordination
+steps with isolated, deterministic fixtures. Prepare the existing disposable
+test database and build the applications for the test origin:
+
+```bash
+docker compose up -d
+pnpm db:generate
+NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 pnpm build
+pnpm exec playwright install chromium webkit
+```
+
+Run the pull-request smoke or full qualified matrix with a unique lowercase run
+identifier:
+
+```bash
+AUTH_E2E_RUN_ID=local-auth-smoke pnpm test:e2e:auth-smoke
+AUTH_E2E_RUN_ID=local-auth-matrix pnpm test:e2e:auth-matrix
+```
+
+The configuration starts the built API and web application and waits for API
+readiness and the web origin through Playwright's web-server probes. It does
+not use fixed startup sleeps. Local macOS verification may set
+`AUTH_E2E_USE_SYSTEM_CHROME=true` to use installed stable Chrome for the
+Chromium project; CI always installs and uses the pinned Playwright binary.
+
+Each scenario derives exact `wq-auth-<run-id>-…@auth-e2e.invalid` addresses,
+registers through the public API, and deletes only those users afterward.
+Refresh sessions disappear through the existing user cascade. The test and
+global cleanup both verify that no namespaced users or sessions remain. To
+clean fixtures left by an interrupted local process, rerun with the same
+`AUTH_E2E_RUN_ID`:
+
+```bash
+AUTH_E2E_RUN_ID=local-auth-matrix pnpm test:e2e:auth-cleanup
+```
+
+That command exits unsuccessfully when it finds leftovers, after removing them,
+so a CI cleanup leak cannot be hidden. It never truncates the database or
+selects password or token hashes.
+
+On a focused browser failure, Playwright retains screenshots, video, a report,
+and a trace with DOM snapshots, sources, and attachments disabled. Before
+artifact upload, the repository sanitizer removes network records and
+non-screenshot resources and redacts input parameters. The attached safe
+network timeline contains only method, auth endpoint path, and response status.
+No Authorization header, request/response body, cookie value, password, token,
+signing secret, or `.env` content is retained.

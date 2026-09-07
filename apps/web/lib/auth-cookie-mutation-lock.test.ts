@@ -66,6 +66,48 @@ describe('auth cookie mutation lock', () => {
     expect(order).toEqual(['lock-acquired', 'operation', 'lock-released']);
   });
 
+  it('releases after a transport-started rejection so a queued operation can acquire', async () => {
+    let tail: Promise<void> = Promise.resolve();
+    const order: string[] = [];
+    const manager = {
+      request<T>(
+        _name: string,
+        _options: { mode: 'exclusive' },
+        callback: () => Promise<T>,
+      ): Promise<T> {
+        const result = tail.then(callback);
+        tail = result.then(
+          () => undefined,
+          () => undefined,
+        );
+        return result;
+      },
+    };
+    const lock = createAuthCookieMutationLock(() => manager);
+    let rejectTransport: ((error: Error) => void) | undefined;
+    const transportFailure = new Error('sanitized transport failure');
+    const first = lock.runExclusive(async () => {
+      order.push('first-transport-start');
+      return new Promise<void>((_resolve, reject) => {
+        rejectTransport = reject;
+      });
+    });
+    const second = lock.runExclusive(async () => {
+      order.push('second-start');
+      order.push('second-end');
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(order).toEqual(['first-transport-start']);
+
+    rejectTransport?.(transportFailure);
+    await expect(first).rejects.toBe(transportFailure);
+    await second;
+
+    expect(order).toEqual(['first-transport-start', 'second-start', 'second-end']);
+  });
+
   it.each([
     ['refresh', 'logout'],
     ['refresh', 'login'],
@@ -179,5 +221,32 @@ describe('auth cookie mutation lock', () => {
     expect(Object.keys(lock)).toEqual(['runExclusive']);
     expect(JSON.stringify(lock)).not.toContain('transient-test-token');
     expect(JSON.stringify(lock)).not.toContain('customer@example.com');
+  });
+
+  it('passes only non-sensitive stable lock metadata to the browser', async () => {
+    const observedMetadata: unknown[] = [];
+    const manager = {
+      async request<T>(
+        name: string,
+        options: { mode: 'exclusive' },
+        callback: () => Promise<T>,
+      ): Promise<T> {
+        observedMetadata.push({ name, options });
+        return callback();
+      },
+    };
+    const lock = createAuthCookieMutationLock(() => manager);
+
+    await lock.runExclusive(async () => undefined);
+
+    expect(observedMetadata).toEqual([
+      {
+        name: authCookieMutationLockName,
+        options: { mode: 'exclusive' },
+      },
+    ]);
+    expect(JSON.stringify(observedMetadata)).not.toMatch(
+      /access.?token|refresh.?token|bearer|password|email|user.?id|session.?id|family.?id|authorization/i,
+    );
   });
 });

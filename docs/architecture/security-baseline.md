@@ -149,6 +149,14 @@ hardening arrive in later versions when their flows exist.
 - Lock waiting causes neither an authentication error nor an automatic retry.
   Network outcomes that become indeterminate after request start retain the
   existing no-retry behavior.
+- Live authentication browser fixtures use deterministic namespaced temporary
+  emails, select only hash-free database counts, delete exact users with
+  cascade-owned sessions, and fail cleanup when rows remain.
+- Credential-bearing browser traces are sanitized before retention: network
+  records and non-screenshot resources are removed and input parameters are
+  redacted. Failure timelines contain only method, auth endpoint path, and
+  status; workflow artifacts do not retain headers, bodies, cookies, passwords,
+  tokens, signing secrets, or `.env` contents.
 
 Production databases must use a dedicated least-privilege account and encrypted
 transport. Access tokens, passwords, cookies, connection strings, environment

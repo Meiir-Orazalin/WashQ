@@ -8,6 +8,7 @@ import {
 class TestBroadcastChannel {
   readonly postedMessages: unknown[] = [];
   readonly listeners = new Set<(event: MessageEvent<unknown>) => void>();
+  postMessageError: Error | null = null;
   close = vi.fn();
   removeEventListener = vi.fn(
     (_type: 'message', listener: (event: MessageEvent<unknown>) => void) => {
@@ -16,6 +17,9 @@ class TestBroadcastChannel {
   );
 
   postMessage(message: unknown) {
+    if (this.postMessageError) {
+      throw this.postMessageError;
+    }
     this.postedMessages.push(message);
   }
 
@@ -127,12 +131,25 @@ describe('auth lifecycle channel', () => {
     unsubscribe?.();
     broadcast.dispatch({ type: 'logout', sourceId: 'remote-document' });
     channel?.close();
+    broadcast.dispatch({ type: 'session-changed', sourceId: 'stale-remote-document' });
     channel?.close();
     channel?.publishLogout();
 
     expect(subscriber).not.toHaveBeenCalled();
     expect(broadcast.removeEventListener).toHaveBeenCalledTimes(1);
     expect(broadcast.close).toHaveBeenCalledTimes(1);
+    expect(broadcast.postedMessages).toEqual([]);
+  });
+
+  it('propagates a runtime postMessage failure without retaining the attempted event', () => {
+    const broadcast = new TestBroadcastChannel();
+    broadcast.postMessageError = new Error('browser channel failed at runtime');
+    const channel = createAuthLifecycleChannel(
+      () => broadcast,
+      () => 'ephemeral-document-id',
+    );
+
+    expect(() => channel?.publishSessionChanged()).toThrow('browser channel failed at runtime');
     expect(broadcast.postedMessages).toEqual([]);
   });
 
@@ -148,5 +165,15 @@ describe('auth lifecycle channel', () => {
         throw new Error('constructor failure');
       }),
     ).toBeNull();
+    const failedSourceChannel = new TestBroadcastChannel();
+    expect(
+      createAuthLifecycleChannel(
+        () => failedSourceChannel,
+        () => {
+          throw new Error('source generation failure');
+        },
+      ),
+    ).toBeNull();
+    expect(failedSourceChannel.close).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,0 +1,212 @@
+name: Authentication browser reliability
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * 2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auth-browser-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  API_PORT: 4000
+  DATABASE_URL: postgresql://washqueue:washqueue_ci@localhost:5432/washqueue_ci?schema=public
+  TEST_DATABASE_URL: postgresql://washqueue:washqueue_ci@localhost:5432/washqueue_ci?schema=public
+  CORS_ORIGINS: http://127.0.0.1:3000
+  LOG_LEVEL: error
+  API_DOCS_ENABLED: 'false'
+  ACCESS_TOKEN_LIFETIME_SECONDS: 900
+  REFRESH_TOKEN_LIFETIME_SECONDS: 3600
+  NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:4000/api/v1
+
+jobs:
+  auth-smoke:
+    name: Chromium authentication smoke
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: washqueue_ci
+          POSTGRES_USER: washqueue
+          POSTGRES_PASSWORD: washqueue_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U washqueue -d washqueue_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.16.0
+          run_install: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Create isolated authentication test environment
+        shell: bash
+        run: |
+          echo "ACCESS_TOKEN_SIGNING_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "AUTH_E2E_RUN_ID=ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm --filter @washqueue/api db:migrate:deploy
+        env:
+          NODE_ENV: test
+
+      - name: Build API and web applications
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Run Chromium authentication smoke
+        run: pnpm test:e2e:auth-smoke
+
+      - name: Sanitize authentication trace artifacts
+        id: sanitize
+        if: always()
+        run: pnpm test:e2e:auth-sanitize
+
+      - name: Verify temporary authentication data cleanup
+        if: always()
+        run: pnpm test:e2e:auth-cleanup
+        env:
+          NODE_ENV: test
+
+      - name: Upload safe authentication failure artifacts
+        if: failure() && steps.sanitize.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: auth-smoke-failure-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            playwright-report/auth/
+            test-results/auth/
+
+  auth-matrix:
+    name: ${{ matrix.browser }} authentication matrix
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: Chromium
+            binary: chromium
+            project: chromium-auth
+          - browser: WebKit
+            binary: webkit
+            project: webkit-auth
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: washqueue_ci
+          POSTGRES_USER: washqueue
+          POSTGRES_PASSWORD: washqueue_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U washqueue -d washqueue_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.16.0
+          run_install: false
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install required browser
+        run: pnpm exec playwright install --with-deps ${{ matrix.binary }}
+
+      - name: Create isolated authentication test environment
+        shell: bash
+        run: |
+          echo "ACCESS_TOKEN_SIGNING_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "AUTH_E2E_RUN_ID=ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_ENV"
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm --filter @washqueue/api db:migrate:deploy
+        env:
+          NODE_ENV: test
+
+      - name: Build API and web applications
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Run browser authentication matrix
+        run: >-
+          pnpm exec playwright test
+          --config=playwright.auth.config.ts
+          --grep @auth-matrix
+          --project=${{ matrix.project }}
+
+      - name: Sanitize authentication trace artifacts
+        id: sanitize
+        if: always()
+        run: pnpm test:e2e:auth-sanitize
+
+      - name: Verify temporary authentication data cleanup
+        if: always()
+        run: pnpm test:e2e:auth-cleanup
+        env:
+          NODE_ENV: test
+
+      - name: Upload safe authentication failure artifacts
+        if: failure() && steps.sanitize.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: auth-matrix-${{ matrix.binary }}-failure-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            playwright-report/auth/
+            test-results/auth/

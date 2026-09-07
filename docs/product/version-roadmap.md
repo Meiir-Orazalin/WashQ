@@ -29,6 +29,8 @@ Status: in progress.
   - [x] Version 1.3.1 — Non-sensitive cross-tab account synchronization,
         confirmed logout notification, and refresh-plus-`/auth/me` identity
         verification.
+  - [x] Version 1.3.2 — Authentication browser-lifecycle reliability,
+        repeatable Chromium/WebKit CI coverage, and isolated test cleanup.
 - [ ] Later Version 1 slices — customer profile and vehicle create, edit,
       delete, and list operations.
 
@@ -42,6 +44,11 @@ the newest explicit login controls the shared cookie, while every tab keeps its
 own memory-only token and converges through a non-sensitive lifecycle event,
 coordinated refresh, and authoritative `/auth/me`. Confirmed logout removes
 memory in other tabs without repeating the server request.
+
+Version 1.3.2 changes no authentication product contract. It enforces the
+critical shared-cookie, Web Lock, lifecycle-channel, page-close/navigation, and
+identity-consistency scenarios through built applications, real browsers, and
+isolated PostgreSQL fixtures in CI.
 
 ## Version 2 — Business onboarding
 
