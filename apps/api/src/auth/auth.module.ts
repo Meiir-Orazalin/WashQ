@@ -30,6 +30,7 @@ import { JoseAccessTokenService } from './infrastructure/jose-access-token.servi
 import { PrismaRefreshSessionRepository } from './infrastructure/prisma-refresh-session.repository.js';
 import { Sha256RefreshTokenHasher } from './infrastructure/sha256-refresh-token.hasher.js';
 import { AuthController } from './presentation/auth.controller.js';
+import { CurrentCustomerGuard } from './presentation/current-customer.guard.js';
 import { RefreshRequestOriginPolicy } from './presentation/refresh-request-origin.policy.js';
 import { RefreshTokenCookiePolicy } from './presentation/refresh-token-cookie.policy.js';
 import { USER_REPOSITORY, type UserRepository } from '../users/application/user-repository.js';
@@ -38,6 +39,7 @@ import { USER_REPOSITORY, type UserRepository } from '../users/application/user-
   imports: [DatabaseModule, UsersModule],
   controllers: [AuthController],
   providers: [
+    CurrentCustomerGuard,
     Argon2PasswordHasher,
     CryptoRefreshTokenGenerator,
     PrismaRefreshSessionRepository,
@@ -167,5 +169,6 @@ import { USER_REPOSITORY, type UserRepository } from '../users/application/user-
         new RefreshRequestOriginPolicy(config.getOrThrow<string[]>('application.corsOrigins')),
     },
   ],
+  exports: [CurrentCustomerGuard, GetCurrentUserUseCase],
 })
 export class AuthModule {}

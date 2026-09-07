@@ -18,6 +18,7 @@ export default function HomePage() {
       <nav className="public-actions" aria-label="Customer account">
         <Link href="/login">Sign in</Link>
         <Link href="/register">Create account</Link>
+        <Link href="/vehicles">Your vehicles</Link>
       </nav>
 
       <section className="status-section" aria-labelledby="system-status-heading">

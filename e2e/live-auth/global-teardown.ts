@@ -13,6 +13,8 @@ export default async function globalTeardown() {
   if (
     cleanup.deletedUsers > 0 ||
     cleanup.deletedSessions > 0 ||
+    cleanup.deletedVehicles > 0 ||
+    cleanup.remainingVehicles > 0 ||
     cleanup.remainingUsers > 0 ||
     cleanup.remainingSessions > 0
   ) {

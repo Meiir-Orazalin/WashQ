@@ -422,3 +422,48 @@ non-screenshot resources and redacts input parameters. The attached safe
 network timeline contains only method, auth endpoint path, and response status.
 No Authorization header, request/response body, cookie value, password, token,
 signing secret, or `.env` content is retained.
+
+## Version 1.4.1 vehicle checks
+
+Keep the existing ignored `.env`; never print its values or replace valid local
+credentials with temporary ones. Start PostgreSQL without resetting its volume:
+
+```bash
+docker compose up -d
+pnpm install --frozen-lockfile
+pnpm db:generate
+pnpm --filter @washqueue/api db:migrate:deploy
+NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy
+pnpm test:vehicle-migration
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 pnpm build
+AUTH_E2E_RUN_ID=local-vehicles pnpm test:e2e:auth-smoke
+AUTH_E2E_RUN_ID=local-vehicles pnpm test:e2e:vehicles
+```
+
+Use `AUTH_E2E_USE_SYSTEM_CHROME=true` for installed Chrome on local macOS if the
+pinned Chromium binary is unavailable; WebKit remains the pinned Playwright
+engine. The live configuration owns startup/shutdown of built API and web and
+uses the existing dedicated test database. The migration gate removes only its
+own newly created disposable database and refuses a pre-existing one.
+
+For an interactive review, start the built applications at the same configured
+origins. Register/login a temporary customer, open `/vehicles`, confirm an empty
+list and submit `Toyota`, `Camry`, `123 ABC 01`, optional year/color. Check 201,
+canonical `123ABC01`, success feedback, form reset and persistence after reload.
+Repeat with `123-abc-01` and expect the safe duplicate message. At mobile width,
+check keyboard focus, labels, validation associations and no horizontal overflow.
+
+With two tabs sharing customer A, sign in customer B through `/login` in one
+tab. The other must hide A's form/list during synchronization and show only B's
+vehicles afterward. A delayed A request must not reappear. Separate browser
+contexts may retain different accounts, and both may save the same plate.
+Spoofed ownership fields must return 400. Sign-out and generic protected 401
+must hide/remove all local vehicle data without automatic retry.
+
+Inspect only statuses, public vehicle fields, safe database counts/constraints,
+cookie attributes and boolean leakage results. Never copy tokens or headers into
+logs/screenshots. The automated suite creates exact namespaced users and deletes
+only those users; it independently confirms cascaded vehicle and session cleanup.
+After interrupted tests, use `AUTH_E2E_RUN_ID=local-vehicles pnpm test:e2e:auth-cleanup`.
+Manually created accounts must likewise be removed by exact fixture ID/email,
+without deleting unrelated development data.

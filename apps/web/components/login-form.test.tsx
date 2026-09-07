@@ -5,6 +5,7 @@ import type { AuthLifecycleChannel, AuthLifecycleEvent } from '@/lib/auth-lifecy
 import { ApiClientError } from '@/lib/api-client';
 import type { RefreshCoordinator } from '@/lib/refresh-coordinator';
 import { AuthenticationProvider, useAuthentication } from '@/providers/authentication-provider';
+import { useTokenStateProbe } from '@/test-support/use-token-state-probe';
 import { LoginForm } from './login-form';
 
 const accessToken = 'test-only-memory-access-token';
@@ -97,13 +98,14 @@ function invalidSessionCoordinator(): RefreshCoordinator {
 
 function AuthenticationProbe() {
   const authentication = useAuthentication();
+  const tokenKind = useTokenStateProbe();
 
   return (
     <>
       <output
         data-testid="authentication-state"
         data-status={authentication.status}
-        data-access-token={authentication.accessToken ? 'present' : 'absent'}
+        data-access-token={tokenKind === 'absent' ? 'absent' : 'present'}
         data-expiration={authentication.accessTokenExpiresAt ? 'present' : 'absent'}
         data-user={authentication.currentUser?.email ?? 'absent'}
       />

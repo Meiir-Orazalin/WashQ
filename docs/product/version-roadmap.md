@@ -31,8 +31,10 @@ Status: in progress.
         verification.
   - [x] Version 1.3.2 — Authentication browser-lifecycle reliability,
         repeatable Chromium/WebKit CI coverage, and isolated test cleanup.
-- [ ] Later Version 1 slices — customer profile and vehicle create, edit,
-      delete, and list operations.
+- [ ] Version 1.4 — Customer vehicle management.
+  - [x] Version 1.4.1 — Current-customer vehicle creation and listing.
+  - [ ] Version 1.4.2 — Owner-scoped vehicle editing and deletion.
+- [ ] Later Version 1 slices — customer profile.
 
 Version 1.2.9 closes the Version 1.2.8 cross-tab release blocker by serializing
 all browser login, refresh, and logout cookie mutations with one fail-closed
@@ -49,6 +51,13 @@ Version 1.3.2 changes no authentication product contract. It enforces the
 critical shared-cookie, Web Lock, lifecycle-channel, page-close/navigation, and
 identity-consistency scenarios through built applications, real browsers, and
 isolated PostgreSQL fixtures in CI.
+
+Version 1.4.1 delivers only current-customer vehicle creation and listing:
+strict canonical contracts, endpoint-scoped Bearer authentication, owner-filtered
+persistence, atomic duplicate handling, and a memory-only-token frontend with
+identity-scoped cache removal. Built Chromium/WebKit scenarios verify account
+switching and stale-response isolation. Editing and deletion remain Version 1.4.2;
+Version 1.4 and Version 1 are not complete.
 
 ## Version 2 — Business onboarding
 

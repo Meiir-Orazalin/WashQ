@@ -9,6 +9,7 @@ import type { AuthLifecycleChannel, AuthLifecycleEvent } from '@/lib/auth-lifecy
 import { ApiClientError } from '@/lib/api-client';
 import { createRefreshCoordinator, type RefreshCoordinator } from '@/lib/refresh-coordinator';
 import { AuthenticationProvider, useAuthentication } from './authentication-provider';
+import { useTokenStateProbe } from '@/test-support/use-token-state-probe';
 
 const user: LoginUser = {
   id: 'df4e7850-e329-4679-91f1-77b409d93f4f',
@@ -116,20 +117,15 @@ function renderProvider(
 
 function AuthenticationProbe() {
   const authentication = useAuthentication();
+  const tokenKind = useTokenStateProbe();
 
   return (
     <>
       <output
         data-testid="authentication-state"
         data-status={authentication.status}
-        data-access-token={authentication.accessToken ? 'present' : 'absent'}
-        data-token-kind={
-          authentication.accessToken === 'explicit-login-token'
-            ? 'explicit'
-            : authentication.accessToken
-              ? 'refreshed'
-              : 'absent'
-        }
+        data-access-token={tokenKind === 'absent' ? 'absent' : 'present'}
+        data-token-kind={tokenKind}
         data-expiration={authentication.accessTokenExpiresAt ?? 'absent'}
         data-user={authentication.currentUser?.email ?? 'absent'}
       />

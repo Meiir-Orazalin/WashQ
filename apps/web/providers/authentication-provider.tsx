@@ -55,7 +55,8 @@ export interface AuthenticationState {
   status: AuthenticationStatus;
 }
 
-interface AuthenticationContextValue extends AuthenticationState {
+interface AuthenticationContextValue extends Omit<AuthenticationState, 'accessToken'> {
+  runWithAccessToken<T>(operation: (accessToken: string) => Promise<T>): Promise<T>;
   beginAuthentication(): number | null;
   isAuthenticationOperationCurrent(operationGeneration: number): boolean;
   completeAuthentication(
@@ -257,6 +258,42 @@ export function AuthenticationProvider({
     logoutIntentRef.current = false;
     clearAuthentication('unauthenticated');
   }, [clearAuthentication]);
+
+  // A callback belongs to the rendered identity, not whichever account happens
+  // to be current when delayed feature work starts. It retains no token copy.
+  const renderedUserId = state.currentUser?.id;
+  const runWithAccessToken = useCallback(
+    async <T,>(operation: (accessToken: string) => Promise<T>): Promise<T> => {
+      const snapshot = stateRef.current;
+      const generation = operationGenerationRef.current;
+      const isCurrent = () =>
+        mountedRef.current &&
+        !logoutIntentRef.current &&
+        generation === operationGenerationRef.current &&
+        stateRef.current.status === 'authenticated' &&
+        stateRef.current.currentUser?.id === renderedUserId;
+      if (!renderedUserId || !snapshot.accessToken || !isCurrent()) {
+        throw new ApiClientError('Authentication is required', 401, 'AUTHENTICATION_REQUIRED');
+      }
+      try {
+        const result = await operation(snapshot.accessToken);
+        if (!isCurrent()) {
+          throw new ApiClientError('The authentication operation is no longer current');
+        }
+        return result;
+      } catch (error) {
+        if (
+          isCurrent() &&
+          isAuthenticationRequired(error) &&
+          stateRef.current.accessToken === snapshot.accessToken
+        ) {
+          clearAuthentication('unauthenticated');
+        }
+        throw error;
+      }
+    },
+    [clearAuthentication, renderedUserId],
+  );
 
   const synchronizeAfterRemoteSessionChange = useCallback(() => {
     if (!mountedRef.current || logoutIntentRef.current) {
@@ -669,7 +706,10 @@ export function AuthenticationProvider({
 
   const value = useMemo(
     () => ({
-      ...state,
+      status: state.status,
+      currentUser: state.currentUser,
+      accessTokenExpiresAt: state.accessTokenExpiresAt,
+      runWithAccessToken,
       beginAuthentication,
       isAuthenticationOperationCurrent,
       completeAuthentication,
@@ -680,6 +720,7 @@ export function AuthenticationProvider({
     }),
     [
       state,
+      runWithAccessToken,
       beginAuthentication,
       isAuthenticationOperationCurrent,
       completeAuthentication,

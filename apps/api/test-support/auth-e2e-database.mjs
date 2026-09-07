@@ -22,6 +22,10 @@ try {
     }
     requireTestEmails([email]);
     writeResult(await inspectLatestFamily(email));
+  } else if (action === 'inspect-vehicles') {
+    const emails = requireTestEmails(argumentsAfterAction);
+    const counts = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
+    writeResult({ vehicles: counts.vehicles });
   } else if (action === 'cleanup-prefix') {
     const runId = requireRunId();
     const prefix = `${testEmailPrefix}${runId}-`;
@@ -99,11 +103,14 @@ async function cleanupExactEmails(emails) {
       [emails],
     );
     const after = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
+    const remainingChildren = await countChildren(before.ownerIds);
     await client.query('COMMIT');
     return {
       deletedSessions: before.sessions,
       deletedUsers: deleted.rowCount ?? 0,
-      remainingSessions: after.sessions,
+      deletedVehicles: before.vehicles,
+      remainingVehicles: remainingChildren.vehicles,
+      remainingSessions: remainingChildren.sessions,
       remainingUsers: after.users,
     };
   } catch (error) {
@@ -120,11 +127,14 @@ async function cleanupPrefix(prefix) {
       `${prefix}%${testEmailSuffix}`,
     ]);
     const after = await countRows('WHERE u.email LIKE $1', [`${prefix}%${testEmailSuffix}`]);
+    const remainingChildren = await countChildren(before.ownerIds);
     await client.query('COMMIT');
     return {
       deletedSessions: before.sessions,
       deletedUsers: deleted.rowCount ?? 0,
-      remainingSessions: after.sessions,
+      deletedVehicles: before.vehicles,
+      remainingVehicles: remainingChildren.vehicles,
+      remainingSessions: remainingChildren.sessions,
       remainingUsers: after.users,
     };
   } catch (error) {
@@ -138,9 +148,12 @@ async function countRows(whereClause, parameters) {
     `
       SELECT
         COUNT(DISTINCT u.id)::integer AS users,
-        COUNT(rs.id)::integer AS sessions
+        COUNT(DISTINCT rs.id)::integer AS sessions,
+        COUNT(DISTINCT v.id)::integer AS vehicles,
+        ARRAY_REMOVE(ARRAY_AGG(DISTINCT u.id), NULL) AS owner_ids
       FROM users u
       LEFT JOIN refresh_sessions rs ON rs.user_id = u.id
+      LEFT JOIN vehicles v ON v.owner_user_id = u.id
       ${whereClause}
     `,
     parameters,
@@ -149,7 +162,19 @@ async function countRows(whereClause, parameters) {
   return {
     sessions: Number(row?.sessions ?? 0),
     users: Number(row?.users ?? 0),
+    vehicles: Number(row?.vehicles ?? 0),
+    ownerIds: row?.owner_ids ?? [],
   };
+}
+
+async function countChildren(ownerIds) {
+  const result = await client.query(
+    `SELECT
+    (SELECT COUNT(*)::integer FROM vehicles WHERE owner_user_id = ANY($1::uuid[])) AS vehicles,
+    (SELECT COUNT(*)::integer FROM refresh_sessions WHERE user_id = ANY($1::uuid[])) AS sessions`,
+    [ownerIds],
+  );
+  return result.rows[0];
 }
 
 async function inspectLatestFamily(email) {

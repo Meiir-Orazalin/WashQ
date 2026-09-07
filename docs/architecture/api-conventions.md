@@ -20,6 +20,8 @@ POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 POST /api/v1/auth/logout
 GET /api/v1/auth/me
+POST /api/v1/vehicles
+GET /api/v1/vehicles
 ```
 
 Liveness returns:
@@ -161,7 +163,43 @@ message `Authentication is required`. The response contains no token, claim,
 credential, role, session, or Prisma data. `/auth/me` does not read or mutate a
 refresh cookie or refresh session.
 
-## Frontend API client
+## Current-customer vehicles (Version 1.4.1)
+
+Both vehicle endpoints require an explicitly supplied Bearer access token and
+verify that its user still exists. They never use the refresh cookie. Ownership
+comes only from that verified identity; `ownerUserId`, `userId` and all unknown
+input fields are rejected. No ownership ID is returned.
+
+`POST /api/v1/vehicles` accepts required `make`, `model`, `plateNumber`, and
+optional `productionYear` and `color`. Omitted or explicitly null optionals become
+null. Make/model/color are trimmed with repeated whitespace collapsed and valid
+casing preserved. Make is 2–60 characters, model 1–60, and nonempty color 1–40;
+empty color becomes null. Year must be an integer from 1900 through the current
+UTC year plus one; strings and decimals are rejected. Plates use NFKC, uppercase,
+space/hyphen removal and only Unicode letters/decimal digits, 2–20 code points.
+`123 ABC 01`, `123-ABC-01`, and `123abc01` all persist as `123ABC01`.
+There is no country-layout restriction.
+
+Success is `201 { "vehicle": ... }`. The strict public vehicle includes only
+`id` (UUID), `make`, `model`, canonical `plateNumber`, nullable `productionYear`,
+nullable `color`, and ISO-8601 `createdAt`/`updatedAt` timestamps.
+`GET /api/v1/vehicles` returns `200 { "vehicles": [...] }`, only for the current
+owner, ordered by `createdAt DESC, id DESC`. An empty list is successful. There
+is no pagination, edit or delete operation in this slice.
+
+Invalid data returns `400 VALIDATION_ERROR`. All expected authentication failures
+return `401 AUTHENTICATION_REQUIRED`. A duplicate canonical plate under the same
+owner returns `409 VEHICLE_ALREADY_EXISTS`; another owner may save the same
+plate. Concurrent equivalent creates produce one 201 and one 409 through the
+database constraint. Unexpected failures use sanitized `500 INTERNAL_SERVER_ERROR`.
+No Prisma codes, constraints, ownership values or token details enter errors.
+
+The focused vehicle client calls `createVehicle(accessToken, input)` and
+`listVehicles(accessToken)` with `credentials: "omit"`, no browser HTTP caching,
+strict shared parsing and cancellation signals. It stores no token, reads no
+cookie and retries neither 401 nor other failures automatically.
+
+## Frontend authentication API client
 
 The central web API client:
 

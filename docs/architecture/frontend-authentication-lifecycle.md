@@ -115,3 +115,32 @@ identity without retaining the old projection.
 These regressions cover browser-document close and navigation. They do not
 claim operating-system process crash, process suspension, device sleep, or
 machine-loss behavior.
+
+## Protected feature cache (Version 1.4.1)
+
+`/vehicles` has no Next.js authentication middleware; backend authentication is
+the security boundary. The page mounts an identity-keyed feature subtree only
+for `authenticated` plus a verified current user. Every other state hides the
+form and list immediately, with existing accessible authentication/recovery UI
+or sign-in/home links.
+
+The provider no longer exposes its access token as a context field. Its narrow
+`runWithAccessToken(operation)` callback reads the current memory-only token at
+invocation, verifies the rendered identity and operation generation, and rejects
+results after either changes. It is not an automatic-refresh interceptor.
+Only a generic 401 for the still-current token clears authentication; a delayed
+old-token 401 cannot invalidate a new identity or refreshed token.
+
+The vehicle hook owns TanStack server state under `['vehicles', currentUser.id]`.
+Queries are enabled only for that authenticated owner, have no retries or
+previous-user placeholders, and pass an AbortSignal to the credential-omitting
+transport. Creation invalidates only the current owner's list and caches no
+response token. Unmount/identity changes abort creation and listing, cancel the
+previous query and remove its data. Guarded render, abort signals and provider
+generation checks jointly prevent late responses from reintroducing user A
+under user B. No vehicle-specific cache logic lives in AuthenticationProvider.
+
+The existing BroadcastChannel event clears old authentication before remote
+refresh plus `/auth/me`; that transition unmounts the old vehicle boundary before
+the authoritative new user can mount its own query. Confirmed cross-tab logout
+uses the same removal path without extra remote logout/refresh requests.

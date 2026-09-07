@@ -39,7 +39,10 @@ adds frontend current-session logout with refresh/logout ordering. Version
 1.2.9 uses one exclusive browser Web Lock to serialize login, refresh, and
 logout cookie mutations across same-origin tabs. Version 1.3.1 sends only
 non-sensitive cross-tab login/logout lifecycle notifications and verifies
-`/auth/me` before every refreshed token/user commit. Global guards, vehicles,
+`/auth/me` before every refreshed token/user commit. Version 1.3.2 verifies that
+lifecycle through built browser/CI tests. Version 1.4.1 adds authenticated
+customer vehicle creation and listing, a vehicle-scoped Bearer guard, strict
+public contracts, and an identity-scoped frontend query cache. Global guards
 and organization capabilities do not exist.
 
 ## Runtime boundaries

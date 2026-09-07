@@ -14,6 +14,9 @@ importers:
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
+      '@washqueue/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
       '@washqueue/eslint-config':
         specifier: workspace:*
         version: link:packages/eslint-config

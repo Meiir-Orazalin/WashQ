@@ -438,3 +438,40 @@ footer {
     gap: 12px;
   }
 }
+/* Vehicle creation and listing share existing accessible form controls. */
+.vehicles-page {
+  width: min(100% - 2rem, 70rem);
+  margin: 2rem auto;
+  overflow-wrap: anywhere;
+}
+
+.vehicle-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.vehicle-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.vehicle-list li {
+  border: 1px solid #bcc8d4;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.vehicle-plate {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 42rem) {
+  .vehicle-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
