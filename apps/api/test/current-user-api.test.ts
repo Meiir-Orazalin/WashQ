@@ -66,6 +66,7 @@ describe('GET /api/v1/auth/me', () => {
 
   async function createCurrentUserApp(): Promise<INestApplication> {
     const userRepository: UserRepository = {
+      updateCurrentUserProfile: async () => null,
       create: async () => {
         throw new Error('registration is not used by current-user tests');
       },

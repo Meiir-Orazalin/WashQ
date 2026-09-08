@@ -22,6 +22,7 @@
     "test:e2e:auth-sanitize": "node e2e/live-auth/sanitize-auth-traces.ts",
     "test:e2e:auth-cleanup": "pnpm --filter @washqueue/api test:e2e:cleanup",
     "test:e2e:vehicles": "node --env-file-if-exists=.env node_modules/@playwright/test/cli.js test --config=playwright.auth.config.ts --grep @vehicles",
+    "test:e2e:profile": "node --env-file-if-exists=.env node_modules/@playwright/test/cli.js test --config=playwright.auth.config.ts --grep @profile",
     "test:vehicle-migration": "node --env-file-if-exists=.env apps/api/test-support/verify-vehicle-migration.mjs",
     "doctor": "node infrastructure/scripts/verify-toolchain.mjs",
     "format": "prettier --write .",

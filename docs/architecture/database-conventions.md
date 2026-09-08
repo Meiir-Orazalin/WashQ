@@ -1,5 +1,21 @@
 # Database conventions
 
+## Profile name updates (Version 1.5)
+
+No schema or migration change is required. Existing user columns and all four
+forward migrations are retained. The trusted-principal name update is one atomic
+`updateManyAndReturn`: omitted names remain unchanged, null lastName clears it,
+Prisma advances updatedAt, and createdAt, email and passwordHash remain unchanged.
+Only the four public user fields are selected for the repository result. Vehicles,
+refresh sessions and unrelated users are not modified.
+
+Concurrent valid updates use PostgreSQL committed ordering (last write wins for
+the same supplied field). Each update remains atomic; disjoint partial updates
+retain one another's omitted values. There is no general optimistic locking,
+version column, history table or distributed lock. Integration tests verify
+protected-field invariants and cascade cleanup; dev/test deploy, status and drift
+checks plus the disposable full-history migration gate remain required.
+
 PostgreSQL is the system of record. Prisma is the database access tool and is
 used only by database or module-infrastructure code.
 

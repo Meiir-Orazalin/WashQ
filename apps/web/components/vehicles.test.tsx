@@ -60,6 +60,7 @@ function setup(refresh = vi.fn().mockResolvedValue(refreshed())) {
   const channel: AuthLifecycleChannel = {
     publishSessionChanged: vi.fn(),
     publishLogout: vi.fn(),
+    publishProfileChanged: vi.fn(),
     close: vi.fn(),
     subscribe: (callback) => {
       listener = callback;

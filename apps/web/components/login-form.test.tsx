@@ -15,6 +15,7 @@ const defaultLockManager = navigator.locks;
 class TestAuthLifecycleChannel implements AuthLifecycleChannel {
   readonly publishSessionChanged = vi.fn();
   readonly publishLogout = vi.fn();
+  readonly publishProfileChanged = vi.fn();
   readonly close = vi.fn();
   private readonly subscribers = new Set<(event: AuthLifecycleEvent) => void>();
 

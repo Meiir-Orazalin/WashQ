@@ -1,5 +1,35 @@
 # Testing strategy
 
+## Version 1.5 profile verification
+
+Contract tests reuse registration normalization and cover strict nonempty partial
+names, omitted/null clears, limits and sensitive/immutable field rejection. Users
+application tests verify trusted principal input, narrow projection, omissions and
+controlled race-time deletion. Production-module HTTP tests exercise the existing
+guard, generic 401, body/query spoofing, sanitized 500/log privacy, OpenAPI and
+unchanged public auth/health endpoints.
+
+PostgreSQL tests verify names, updatedAt advancement, unchanged createdAt/email/
+passwordHash, unchanged vehicles/sessions/unrelated users, deletion races and atomic
+last-write-wins behavior. Exact fixtures are deleted and child cascades checked.
+The existing vehicle migration verifier remains mandatory without a new migration.
+
+Component/provider tests cover read-only profile display, prefill, field errors,
+cancel/focus, pending latches, successful authoritative commits, nullable clears,
+no profile/query/mutation cache, exact channel payloads, remote `/me` without refresh
+or rebroadcast, remote failure recovery and stale success/401/500 after account
+switches. Authentication and vehicle suites remain regression gates.
+
+`pnpm test:e2e:profile` runs `e2e/live-auth/profile.spec.ts` with built API/web and
+PostgreSQL on the existing Chrome/Chromium and WebKit projects. Scenarios cover
+mobile keyboard edits, persistence after restoration, nullable clears, immutable
+API rejection, same-user cross-tab synchronization with unchanged cookie/family,
+and account switching during a delayed update. Privacy checks retain credentials
+only transiently in the runner and assert booleans, never print them. Existing
+fixture/trace sanitization verifies zero temporary users, vehicles and sessions.
+The browser workflow runs profile scenarios after auth and vehicle gates.
+Firefox remains unqualified; a local result is not a GitHub-hosted result.
+
 Tests are selected by risk and boundary.
 
 ## Test layers

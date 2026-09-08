@@ -42,7 +42,7 @@ describe('GetCurrentUserUseCase', () => {
     findPublicById.mockReset().mockResolvedValue(publicUser);
     useCase = new GetCurrentUserUseCase(
       { issue, verify },
-      { create, findAuthenticationByEmail, findPublicById },
+      { create, findAuthenticationByEmail, findPublicById, updateCurrentUserProfile: vi.fn() },
     );
   });
 

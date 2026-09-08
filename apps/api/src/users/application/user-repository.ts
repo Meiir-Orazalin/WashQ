@@ -34,6 +34,12 @@ export interface UserRepository {
   create(user: CreateUser): Promise<RegisteredUser>;
   findAuthenticationByEmail(email: string): Promise<UserAuthenticationRecord | null>;
   findPublicById(id: string): Promise<PublicUser | null>;
+  updateCurrentUserProfile(id: string, patch: UserProfilePatch): Promise<PublicUser | null>;
+}
+
+export interface UserProfilePatch {
+  firstName?: string;
+  lastName?: string | null;
 }
 
 export class DuplicateUserEmailError extends Error {

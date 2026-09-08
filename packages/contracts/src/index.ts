@@ -25,6 +25,10 @@ export {
 export { refreshResponseSchema, type RefreshResponse } from './refresh.js';
 export { currentUserResponseSchema, type CurrentUserResponse } from './current-user.js';
 export {
+  updateCurrentUserProfileRequestSchema,
+  type UpdateCurrentUserProfileRequest,
+} from './profile.js';
+export {
   createVehicleRequestSchema,
   publicVehicleSchema,
   createVehicleResponseSchema,

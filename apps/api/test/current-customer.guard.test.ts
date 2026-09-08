@@ -11,6 +11,7 @@ describe('CurrentCustomerGuard', () => {
       {
         create: vi.fn(),
         findAuthenticationByEmail: vi.fn(),
+        updateCurrentUserProfile: vi.fn(),
         findPublicById: vi.fn().mockResolvedValue({
           id: userId,
           firstName: 'Private',

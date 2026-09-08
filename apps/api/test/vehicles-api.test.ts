@@ -51,6 +51,7 @@ describe('vehicle HTTP authentication and contracts', () => {
       listByOwner: vi.fn().mockResolvedValue([vehicle]),
     };
     users = {
+      updateCurrentUserProfile: vi.fn(),
       create: vi.fn(),
       findAuthenticationByEmail: vi.fn(),
       findPublicById: vi.fn().mockResolvedValue({

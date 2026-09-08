@@ -1,5 +1,21 @@
 # Authentication architecture
 
+## Profile names (Version 1.5)
+
+`GET /auth/me` remains the authoritative public identity lookup. Name editing is
+owned by users through `PATCH /users/me`, composed with the existing
+`CurrentCustomerGuard` and minimum `{ userId }` principal. Public registration,
+login, refresh, logout and health behavior is unchanged. Deleted identity,
+including deletion between guard and update, produces the same generic 401.
+
+AuthenticationProvider adds `runWithCurrentUserUpdate(operation)`, built on
+`runWithAccessToken`. It strictly validates the returned public user, checks the
+captured identity generation and expected account, preserves the latest token and
+expiration, commits only currentUser, and publishes one `profile-changed` after
+commit. It does not expose an accessToken property or hold profile form state.
+Receiving authenticated tabs use their own memory-only token for `/auth/me`,
+without refresh or rebroadcast. See the frontend lifecycle for stale-read ordering.
+
 Version 1.2.1 establishes authentication configuration and token/session
 infrastructure. Version 1.2.2 adds backend customer login and initial refresh
 session issuance. Version 1.2.3 adds one-time refresh-token rotation and

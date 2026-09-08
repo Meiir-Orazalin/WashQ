@@ -43,7 +43,12 @@ describe('RegisterCustomerUseCase', () => {
     findAuthenticationByEmail.mockReset();
     findPublicById.mockReset();
     passwordHasher = { hash, verify, verifyDummy };
-    userRepository = { create, findAuthenticationByEmail, findPublicById };
+    userRepository = {
+      create,
+      findAuthenticationByEmail,
+      findPublicById,
+      updateCurrentUserProfile: vi.fn(),
+    };
     registerCustomer = new RegisterCustomerUseCase(passwordHasher, userRepository);
   });
 

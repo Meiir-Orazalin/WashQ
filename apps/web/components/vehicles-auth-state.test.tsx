@@ -38,6 +38,7 @@ describe('vehicle fail-closed rendering', () => {
         },
         accessTokenExpiresAt: null,
         runWithAccessToken: run,
+        runWithCurrentUserUpdate: vi.fn(),
         beginAuthentication: vi.fn(),
         isAuthenticationOperationCurrent: vi.fn(),
         completeAuthentication: vi.fn(),

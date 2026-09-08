@@ -1,5 +1,44 @@
 # Local setup
 
+## Version 1.5 profile verification
+
+Keep the existing ignored `.env`; never print credentials or reset local data.
+Use the infrastructure, dev/test migration deploy/status/drift and disposable
+vehicle-migration commands documented below. There is no new migration/dependency.
+
+```bash
+pnpm install --frozen-lockfile
+docker compose up -d
+pnpm db:generate
+pnpm --filter @washqueue/api db:migrate:deploy
+NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 pnpm build
+AUTH_E2E_RUN_ID=local-profile AUTH_E2E_USE_SYSTEM_CHROME=true pnpm test:e2e:profile
+```
+
+The focused command starts built API/web, runs both qualified browsers and cleans
+exact namespaced fixtures. Also run all format/lint/typecheck/unit/integration,
+general E2E, authentication smoke, vehicle E2E and vehicle-migration gates.
+
+For live review, register/login a temporary account, follow Your profile, confirm
+names and read-only email, edit both names, save and reload. Clear last name and
+reload again. Try immutable fields via a transient in-memory Bearer client; expect
+400 and no email/password/identity change. Do not paste headers/tokens into output.
+In two same-account tabs, edit one name and verify exactly one `profile-changed`
+message containing only type/sourceId, one receiver `/auth/me`, no refresh or
+Set-Cookie, and both updated displays. Delay PATCH while the other tab logs into
+another account: old content/form must disappear during synchronization and the
+old completion must not change the new account or show old feedback.
+
+Inspect timestamps and unchanged protected fields in PostgreSQL using boolean
+comparisons; verify vehicles and refresh sessions are unchanged by name updates.
+Check browser storage, markup, query/mutation caches, channel payloads and process
+logs without printing credentials or private profile values. Verify keyboard
+labels/error associations, pending announcements, save/cancel focus and mobile
+overflow. Delete only exact temporary users and confirm zero related users,
+vehicles and sessions. No release tag precedes reviewed, passing hosted checks
+and merge.
+
 ## Prerequisites
 
 Install Node.js 24 LTS, Git, and Docker Desktop. Enable the repository-pinned
@@ -347,7 +386,8 @@ hashes.
    public identity, cookie presence/attributes, active-session counts, and
    lifecycle event shapes.
 
-Inspect `washqueue-auth-events-v1` messages. The only allowed shapes are:
+Inspect `washqueue-auth-events-v1` messages. Version 1.3.1 introduced the following
+two shapes; Version 1.5 also allows the profile-change shape documented above:
 
 ```json
 { "type": "session-changed", "sourceId": "ephemeral-per-document-id" }
