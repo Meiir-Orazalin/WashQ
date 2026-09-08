@@ -8,6 +8,8 @@ import { ZodValidationPipe } from '../src/http/zod-validation.pipe.js';
 import { requestIdMiddleware } from '../src/http/request-id.middleware.js';
 import type { UserRepository } from '../src/users/application/user-repository.js';
 import { CreateVehicleUseCase } from '../src/vehicles/application/create-vehicle.use-case.js';
+import { UpdateCurrentUserVehicleUseCase } from '../src/vehicles/application/update-current-user-vehicle.use-case.js';
+import { DeleteCurrentUserVehicleUseCase } from '../src/vehicles/application/delete-current-user-vehicle.use-case.js';
 import { ListCurrentUserVehiclesUseCase } from '../src/vehicles/application/list-current-user-vehicles.use-case.js';
 import type { VehicleRepository } from '../src/vehicles/application/vehicle.repository.js';
 import { VehiclesController } from '../src/vehicles/presentation/vehicles.controller.js';
@@ -30,6 +32,14 @@ export async function createVehicleTestApp(
       CurrentCustomerGuard,
       { provide: GetCurrentUserUseCase, useValue: new GetCurrentUserUseCase(tokens, users) },
       { provide: CreateVehicleUseCase, useValue: new CreateVehicleUseCase(repository) },
+      {
+        provide: UpdateCurrentUserVehicleUseCase,
+        useValue: new UpdateCurrentUserVehicleUseCase(repository),
+      },
+      {
+        provide: DeleteCurrentUserVehicleUseCase,
+        useValue: new DeleteCurrentUserVehicleUseCase(repository),
+      },
       {
         provide: ListCurrentUserVehiclesUseCase,
         useValue: new ListCurrentUserVehiclesUseCase(repository),

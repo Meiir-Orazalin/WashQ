@@ -183,6 +183,36 @@ The existing browser workflow runs vehicle scenarios after its auth gate, using
 the same artifact sanitization policy. Root E2E imports the existing contracts
 workspace package through its public entry point; this adds no external package.
 
+## Version 1.4.2 vehicle mutation verification
+
+Contract tests cover strict nonempty partial updates, UUIDs, immutable/ownership
+spoof rejection, shared normalization, omitted versus nullable fields and controlled
+UTC-year boundaries. Application tests verify scoped port inputs, absent-field
+preservation and controlled errors. HTTP tests verify empty DELETE 204, generic
+401/404, strict PATCH responses, duplicate 409, OpenAPI and sanitized error/log output.
+
+PostgreSQL mutation tests use only exact temporary owners and verify timestamps,
+canonical persistence, optional clears, missing/foreign equivalence, unchanged
+unrelated rows and user cascade. Real HTTP races assert update 200/409, delete
+204/404, and update/delete ordering without resurrection. Existing schema/index
+tests and `test:vehicle-migration` remain mandatory; no migration is added.
+
+Component tests cover prefill, changed-field submission, validation associations,
+focus after save/cancel/delete, confirmation, pending latches, safe errors and
+stale-row invalidation. Delayed update/delete success, 401 and 404 are released
+after switching to B and must not change B's cache or UI. Remote logout and
+current-token 401 remove forms, confirmations and query data without retry.
+
+`e2e/live-auth/vehicle-edit-delete.spec.ts` extends `pnpm test:e2e:vehicles` on
+the existing Chrome/Chromium and WebKit projects with built API/web/PostgreSQL.
+It covers all-field edit and reload, optional clearing, duplicate feedback,
+foreign/missing error equivalence, repeated deletion, concurrent plate changes,
+and two-tab account switches during delayed PATCH and DELETE responses. Storage,
+markup, cookie omission and console checks assert boolean privacy results.
+Fixture teardown confirms zero remaining temporary users, vehicles and sessions.
+Firefox is not qualified. Authentication smoke and existing create/list tests
+remain required regressions, not replaced by these mutation tests.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

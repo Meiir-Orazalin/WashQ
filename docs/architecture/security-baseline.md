@@ -154,6 +154,28 @@ before they are implemented.
   logout hides and removes vehicle data immediately, but possession of an
   unexpired access token remains sufficient until expiration unless its user is deleted.
 
+## Vehicle mutation ownership (Version 1.4.2)
+
+- PATCH and DELETE reuse the existing endpoint-scoped current-customer guard,
+  including user-existence verification and generic 401. Owner identity is never
+  supplied by a request field, query or vehicle UUID.
+- Both database mutations include authenticated owner and vehicle ID in the
+  write predicate. Missing and foreign rows yield the same generic 404. Public
+  mappings contain no owner ID, and duplicate errors reveal no foreign ownership.
+- Strict partial contracts reject ownership, immutable and credential fields;
+  creation and update share one plate canonicalization. Only the known composite
+  uniqueness failure becomes 409; unexpected errors remain sanitized 500.
+- Frontend mutations obtain tokens only through the memory-only callback, omit
+  cookies, never retry automatically, and cache only mutable form input and safe
+  outcome labels. Tokens enter neither mutation variables/results nor query keys.
+- Account synchronization and logout unmount all old forms and confirmations,
+  abort requests and remove old query data. A 404 is classified inside the token
+  callback so it must pass the same identity/generation check as a success before
+  invalidation or feedback. An old 401 cannot log out a newer account.
+- Deletion is permanent, affects one vehicle only and changes no user or session.
+  No soft deletion, audit history, role, organization or optimistic-locking model
+  is introduced.
+
 ## Remaining future boundaries
 
 Global authentication guards and authorization arrive in later Version 1

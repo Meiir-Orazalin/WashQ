@@ -22,6 +22,8 @@ POST /api/v1/auth/logout
 GET /api/v1/auth/me
 POST /api/v1/vehicles
 GET /api/v1/vehicles
+PATCH /api/v1/vehicles/:vehicleId
+DELETE /api/v1/vehicles/:vehicleId
 ```
 
 Liveness returns:
@@ -163,9 +165,9 @@ message `Authentication is required`. The response contains no token, claim,
 credential, role, session, or Prisma data. `/auth/me` does not read or mutate a
 refresh cookie or refresh session.
 
-## Current-customer vehicles (Version 1.4.1)
+## Current-customer vehicles (Versions 1.4.1–1.4.2)
 
-Both vehicle endpoints require an explicitly supplied Bearer access token and
+All vehicle endpoints require an explicitly supplied Bearer access token and
 verify that its user still exists. They never use the refresh cookie. Ownership
 comes only from that verified identity; `ownerUserId`, `userId` and all unknown
 input fields are rejected. No ownership ID is returned.
@@ -185,7 +187,30 @@ Success is `201 { "vehicle": ... }`. The strict public vehicle includes only
 nullable `color`, and ISO-8601 `createdAt`/`updatedAt` timestamps.
 `GET /api/v1/vehicles` returns `200 { "vehicles": [...] }`, only for the current
 owner, ordered by `createdAt DESC, id DESC`. An empty list is successful. There
-is no pagination, edit or delete operation in this slice.
+is no pagination or separate single-vehicle read endpoint.
+
+`PATCH /api/v1/vehicles/:vehicleId` validates the UUID and a strict partial object
+containing at least one of `make`, `model`, `plateNumber`, `productionYear`, `color`.
+It returns `200 { "vehicle": ... }` using the same public vehicle projection.
+Omitted fields remain unchanged. Make/model/plate cannot be null and reuse the
+creation normalizers and limits. Null year/color clear their values; empty color
+also becomes null. No string coercion is performed for year. Ownership, immutable,
+credential and all unknown fields are rejected. `createdAt` is preserved and
+`updatedAt` changes. A plate already held by this same vehicle is not a conflict;
+the canonical plate of a different owned vehicle is `409 VEHICLE_ALREADY_EXISTS`.
+
+`DELETE /api/v1/vehicles/:vehicleId` validates the UUID and returns an empty
+`204 No Content` after one owned row is deleted. It has no success JSON contract.
+Repeated deletion returns 404, not another 204. Both mutation endpoints match the
+verified owner and vehicle ID atomically. Missing and not-owned rows produce the
+identical `404 VEHICLE_NOT_FOUND` error and `The vehicle was not found` message,
+never an ownership-specific 403. Standard request ID, path and timestamp metadata
+remain request-specific and carry no existence information.
+
+PATCH documents 200/400/401/404/409/500; DELETE documents 204/400/401/404/500 in
+OpenAPI, with endpoint-scoped Bearer security and UUID parameters. Invalid UUIDs
+return `400 VALIDATION_ERROR` before persistence. Deletion changes no owner,
+refresh session or unrelated vehicle.
 
 Invalid data returns `400 VALIDATION_ERROR`. All expected authentication failures
 return `401 AUTHENTICATION_REQUIRED`. A duplicate canonical plate under the same
@@ -194,10 +219,16 @@ plate. Concurrent equivalent creates produce one 201 and one 409 through the
 database constraint. Unexpected failures use sanitized `500 INTERNAL_SERVER_ERROR`.
 No Prisma codes, constraints, ownership values or token details enter errors.
 
-The focused vehicle client calls `createVehicle(accessToken, input)` and
-`listVehicles(accessToken)` with `credentials: "omit"`, no browser HTTP caching,
+Concurrent equivalent plate updates of two owned vehicles yield one 200 and one 409. Concurrent deletes yield one 204 and one generic 404. An update racing a
+delete may return 200 or 404 according to committed database ordering; it never
+recreates the vehicle. There is no general optimistic locking or version column.
+
+The focused vehicle client calls `createVehicle(accessToken, input)`,
+`listVehicles(accessToken)`, `updateVehicle(accessToken, vehicleId, input)` and
+`deleteVehicle(accessToken, vehicleId)` with `credentials: "omit"`, no browser HTTP caching,
 strict shared parsing and cancellation signals. It stores no token, reads no
-cookie and retries neither 401 nor other failures automatically.
+cookie and retries neither 401 nor other failures automatically. DELETE requires
+204 and never parses its successful response as JSON.
 
 ## Frontend authentication API client
 

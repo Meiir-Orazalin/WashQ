@@ -467,3 +467,43 @@ only those users; it independently confirms cascaded vehicle and session cleanup
 After interrupted tests, use `AUTH_E2E_RUN_ID=local-vehicles pnpm test:e2e:auth-cleanup`.
 Manually created accounts must likewise be removed by exact fixture ID/email,
 without deleting unrelated development data.
+
+## Version 1.4.2 edit/delete verification
+
+Use the same ignored environment, infrastructure and built-stack commands above.
+There is no new migration. Verify deploy/status for both existing databases and
+schema drift without resetting either:
+
+```bash
+pnpm --filter @washqueue/api db:migrate:deploy
+pnpm --filter @washqueue/api exec prisma migrate status
+NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy
+NODE_ENV=test pnpm --filter @washqueue/api exec prisma migrate status
+pnpm --filter @washqueue/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+NODE_ENV=test pnpm --filter @washqueue/api exec prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+pnpm test:vehicle-migration
+```
+
+After building, `pnpm test:e2e:vehicles` runs creation/listing and mutation scenarios
+on the qualified Chrome/Chromium and WebKit projects. Use the documented local
+system-Chrome flag if needed. Also run format, lint, typecheck, all unit/integration
+tests, `test:e2e`, `test:e2e:auth-smoke`, and build; do not substitute mocked tests
+for real PostgreSQL and browser gates.
+
+For live review, create an exact temporary customer and vehicle. Use Edit to
+change all five fields, confirm canonical plate display, then reload. Clear year
+and color, save and reload again. Saving the canonical plate of a second owned
+vehicle must show the safe duplicate message and retain both original rows.
+Cancel an edit and a delete confirmation and verify no mutation request occurs.
+Confirm deletion, verify zero-byte 204, reload and confirm absence; repeated
+deletion is generic 404. Check keyboard focus, live pending/error/success feedback,
+associated labels/errors and desktop/mobile layout.
+
+Use a second temporary customer's in-memory Bearer token to PATCH and DELETE the
+first vehicle: compare only the stable error object with a random UUID's 404
+(normal path/request ID/timestamp metadata differ). Both must say only
+`VEHICLE_NOT_FOUND`. Never paste tokens or Authorization headers into logs.
+The built suite delays PATCH/DELETE responses during a two-tab A-to-B switch and
+verifies immediate old-control removal and no stale success/error under B.
+Inspect owner-scoped rows, timestamps, uniqueness and counts without selecting
+credentials; delete only exact temporary users and confirm vehicle/session cascades.

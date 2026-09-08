@@ -438,7 +438,7 @@ footer {
     gap: 12px;
   }
 }
-/* Vehicle creation and listing share existing accessible form controls. */
+/* Vehicle management shares existing accessible form controls. */
 .vehicles-page {
   width: min(100% - 2rem, 70rem);
   margin: 2rem auto;
@@ -468,6 +468,26 @@ footer {
 .vehicle-plate {
   font-weight: 700;
   letter-spacing: 0.05em;
+}
+
+.vehicle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.vehicle-actions .submit-button {
+  width: auto;
+}
+
+.destructive-button {
+  color: #991b1b;
+  border-color: #991b1b;
+}
+
+.vehicle-edit-form {
+  margin-top: 1rem;
 }
 
 @media (max-width: 42rem) {

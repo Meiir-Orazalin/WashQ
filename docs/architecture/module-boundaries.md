@@ -32,7 +32,7 @@ Planned capabilities are documented in the roadmap; Version 0 intentionally
 does not contain empty identity, vehicle, business, marketplace, booking, queue,
 review, notification, payment, or analytics modules.
 
-## Vehicles (Version 1.4.1)
+## Vehicles (Versions 1.4.1–1.4.2)
 
 `VehiclesModule` imports `AuthModule`'s public current-customer guard and
 current-user application boundary, not users/auth persistence. The guard reuses
@@ -47,3 +47,18 @@ Both depend on `VehicleRepository` and framework-independent vehicle values.
 `PrismaVehicleRepository` alone writes/queries vehicles, projects only public
 fields, and maps the exact composite duplicate constraint. No cross-module
 repository access, CQRS framework, role system or global authorization is added.
+
+`UpdateCurrentUserVehicleUseCase` validates a UUID and strict partial input using
+the same shared field schemas as creation. It passes the verified owner, vehicle
+ID and only supplied mutable fields to `updateOwnedVehicle`. The Prisma adapter
+uses one owner-and-ID-filtered `updateManyAndReturn` with a public projection.
+`DeleteCurrentUserVehicleUseCase` calls one owner-and-ID-filtered `deleteMany`.
+Neither performs a preliminary ownership lookup or a mutation by vehicle ID alone.
+Null/false repository results become `VehicleNotFoundError`; presentation maps
+both missing and foreign vehicles to the same `404 VEHICLE_NOT_FOUND`.
+
+Frontend transport remains in `vehicle-api-client`; `vehicle-edit-form` translates
+changed controls and delegates normalization to contracts. `useVehicleMutations`
+owns asynchronous lifecycle and owner-scoped invalidation. Native inline forms
+and explicit delete confirmation remain presentation concerns, inside the existing
+authenticated, user-keyed subtree. AuthenticationProvider has no vehicle logic.
