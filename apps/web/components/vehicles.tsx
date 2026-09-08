@@ -1,16 +1,14 @@
 'use client';
 
-import {
-  createVehicleRequestSchema,
-  type CreateVehicleRequest,
-  type PublicVehicle,
-} from '@washqueue/contracts';
+import { createVehicleRequestSchema, type CreateVehicleRequest } from '@washqueue/contracts';
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useVehicles } from '@/hooks/use-vehicles';
 import { ApiClientError } from '@/lib/api-client';
 import { useAuthentication } from '@/providers/authentication-provider';
 import { LoginForm } from './login-form';
+import { VehicleItem } from './vehicle-item';
+import type { VehicleMutationOutcome } from '@/hooks/use-vehicle-mutations';
 
 export function Vehicles() {
   const authentication = useAuthentication();
@@ -71,6 +69,19 @@ function CustomerVehicles({ userId }: { userId: string }) {
   const [values, setValues] = useState(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [success, setSuccess] = useState(false);
+  const [vehicleFeedback, setVehicleFeedback] = useState('');
+  const listHeading = useRef<HTMLHeadingElement>(null);
+
+  function handleVehicleOutcome(outcome: VehicleMutationOutcome) {
+    setVehicleFeedback(
+      outcome === 'missing'
+        ? 'This vehicle is no longer available.'
+        : outcome === 'deleted'
+          ? 'Vehicle deleted.'
+          : 'Vehicle updated.',
+    );
+    if (outcome !== 'updated') listHeading.current?.focus();
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,7 +158,12 @@ function CustomerVehicles({ userId }: { userId: string }) {
         </form>
       </section>
       <section aria-labelledby="saved-vehicles-heading" aria-busy={query.isPending}>
-        <h2 id="saved-vehicles-heading">Your vehicles</h2>
+        <h2 ref={listHeading} tabIndex={-1} id="saved-vehicles-heading">
+          Your vehicles
+        </h2>
+        <p role="status" aria-live="polite">
+          {vehicleFeedback}
+        </p>
         {query.isPending ? (
           <p role="status">Loading your vehicles…</p>
         ) : query.isError ? (
@@ -162,24 +178,16 @@ function CustomerVehicles({ userId }: { userId: string }) {
         ) : (
           <ul className="vehicle-list">
             {query.data.vehicles.map((vehicle) => (
-              <VehicleItem key={vehicle.id} vehicle={vehicle} />
+              <VehicleItem
+                key={vehicle.id}
+                vehicle={vehicle}
+                userId={userId}
+                onOutcome={handleVehicleOutcome}
+              />
             ))}
           </ul>
         )}
       </section>
     </div>
-  );
-}
-
-function VehicleItem({ vehicle }: { vehicle: PublicVehicle }) {
-  return (
-    <li>
-      <h3>
-        {vehicle.make} {vehicle.model}
-      </h3>
-      <p className="vehicle-plate">{vehicle.plateNumber}</p>
-      {vehicle.productionYear !== null ? <p>Year: {vehicle.productionYear}</p> : null}
-      {vehicle.color !== null ? <p>Color: {vehicle.color}</p> : null}
-    </li>
   );
 }

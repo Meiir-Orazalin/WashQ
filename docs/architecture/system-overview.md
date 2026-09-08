@@ -42,8 +42,10 @@ non-sensitive cross-tab login/logout lifecycle notifications and verifies
 `/auth/me` before every refreshed token/user commit. Version 1.3.2 verifies that
 lifecycle through built browser/CI tests. Version 1.4.1 adds authenticated
 customer vehicle creation and listing, a vehicle-scoped Bearer guard, strict
-public contracts, and an identity-scoped frontend query cache. Global guards
-and organization capabilities do not exist.
+public contracts, and an identity-scoped frontend query cache. Version 1.4.2 adds
+owner-scoped editing and permanent deletion through the same boundaries, with
+identity-scoped frontend mutations and no schema change. Global guards and
+organization capabilities do not exist.
 
 ## Runtime boundaries
 

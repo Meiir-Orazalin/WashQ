@@ -144,3 +144,26 @@ The existing BroadcastChannel event clears old authentication before remote
 refresh plus `/auth/me`; that transition unmounts the old vehicle boundary before
 the authoritative new user can mount its own query. Confirmed cross-tab logout
 uses the same removal path without extra remote logout/refresh requests.
+
+### Editing and deletion (Version 1.4.2)
+
+Edit forms and explicit delete confirmations live inside that same keyed vehicle
+subtree. `useVehicleMutations` captures the owner and vehicle ID, owns an abort
+controller and synchronous duplicate-submit latch, and uses retry-free TanStack
+mutations. Keys are `['vehicles', userId, vehicleId, 'mutation']`; variables contain
+only operation and patch, and results contain only safe outcome labels. Tokens
+remain exclusively inside the existing callback and transport invocation.
+
+Successful writes invalidate/refetch only `['vehicles', capturedUserId]`; there
+are no optimistic updates or rollback snapshots. Expected 404s become a `missing`
+outcome inside `runWithAccessToken`, ensuring even those outcomes pass the
+provider's authoritative identity/generation check. Only a still-mounted,
+non-aborted operation can show feedback or invalidate. Missing results refetch
+the stale list and show `This vehicle is no longer available.` without retry.
+
+Every non-authenticated status unmounts edit state, delete confirmation and their
+mutation observers. Cleanup aborts pending feature work; the existing list
+boundary cancels and removes prior-owner queries. Late A success/401/404 cannot
+show feedback, invalidate B's list, reopen A's form or sign out B. A committed
+server mutation cannot necessarily be undone by browser abort: it remains scoped
+to A and is discarded by B's UI. No vehicle logic enters AuthenticationProvider.

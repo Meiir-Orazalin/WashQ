@@ -40,6 +40,20 @@ export const createVehicleRequestSchema = z.strictObject({
   color: colorSchema.nullable().default(null),
 });
 
+export const vehicleIdParamsSchema = z.strictObject({ vehicleId: z.uuid() });
+
+export const updateVehicleRequestSchema = z
+  .strictObject({
+    make: createVehicleRequestSchema.shape.make.optional(),
+    model: createVehicleRequestSchema.shape.model.optional(),
+    plateNumber: plateNumberSchema.optional(),
+    productionYear: productionYearSchema.nullable().optional(),
+    color: colorSchema.nullable().optional(),
+  })
+  .refine((patch) => Object.values(patch).some((value) => value !== undefined), {
+    message: 'Provide at least one vehicle field',
+  });
+
 // Responses must already be canonical: parsing must not repair server output.
 export const publicVehicleSchema = z.strictObject({
   id: z.uuid(),
@@ -72,6 +86,7 @@ export const publicVehicleSchema = z.strictObject({
 });
 
 export const createVehicleResponseSchema = z.strictObject({ vehicle: publicVehicleSchema });
+export const updateVehicleResponseSchema = z.strictObject({ vehicle: publicVehicleSchema });
 export const vehicleListResponseSchema = z.strictObject({ vehicles: z.array(publicVehicleSchema) });
 
 export type CreateVehicleRequest = z.infer<typeof createVehicleRequestSchema>;
@@ -79,3 +94,6 @@ export type CreateVehicleInput = z.input<typeof createVehicleRequestSchema>;
 export type PublicVehicle = z.infer<typeof publicVehicleSchema>;
 export type CreateVehicleResponse = z.infer<typeof createVehicleResponseSchema>;
 export type VehicleListResponse = z.infer<typeof vehicleListResponseSchema>;
+export type VehicleIdParams = z.infer<typeof vehicleIdParamsSchema>;
+export type UpdateVehicleRequest = z.infer<typeof updateVehicleRequestSchema>;
+export type UpdateVehicleResponse = z.infer<typeof updateVehicleResponseSchema>;

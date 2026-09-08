@@ -5,6 +5,7 @@ import { PrismaService } from '../../database/prisma.service.js';
 import {
   VehicleAlreadyExistsError,
   type NewVehicle,
+  type VehiclePatch,
   type VehicleRepository,
 } from '../application/vehicle.repository.js';
 import type { Vehicle } from '../domain/vehicle.js';
@@ -56,5 +57,34 @@ export class PrismaVehicleRepository implements VehicleRepository {
       select: publicVehicleSelect,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     });
+  }
+
+  async updateOwnedVehicle(
+    ownerUserId: string,
+    vehicleId: string,
+    patch: VehiclePatch,
+  ): Promise<Vehicle | null> {
+    try {
+      const vehicles = await this.prisma.vehicle.updateManyAndReturn({
+        where: { id: vehicleId, ownerUserId },
+        data: patch,
+        select: publicVehicleSelect,
+      });
+      return vehicles[0] ?? null;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        plateConflictMetadata.safeParse(error.meta).success
+      ) {
+        throw new VehicleAlreadyExistsError();
+      }
+      throw error;
+    }
+  }
+
+  async deleteOwnedVehicle(ownerUserId: string, vehicleId: string): Promise<boolean> {
+    const result = await this.prisma.vehicle.deleteMany({ where: { id: vehicleId, ownerUserId } });
+    return result.count === 1;
   }
 }

@@ -109,3 +109,22 @@ disposable `washqueue_vehicle_migration_ci` database, applies the complete histo
 checks Prisma drift, and removes only the database it created. It refuses to
 reuse or drop a pre-existing database. Normal verification never resets existing
 development data or removes Docker volumes.
+
+## Version 1.4.2 vehicle mutations
+
+No schema change or migration is needed. The four applied migrations remain
+immutable; the same ownership FK, cascade, composite unique index, listing index
+and timezone-aware timestamps remain authoritative.
+
+Update is one `updateManyAndReturn` filtered by both `id` and `ownerUserId`, with
+only supplied mutable values and the public projection. Prisma maintains
+`updatedAt`; `createdAt` and omitted fields are not written. Delete is one
+`deleteMany` with the same two predicates; only a count of one indicates success.
+There is no read-then-unscoped-write sequence, upsert or ownership change.
+
+The existing owner/plate constraint also arbitrates concurrent equivalent updates.
+One succeeds and the other maps to the controlled conflict. Two deletes remove
+one row once; the losing request receives generic not-found. Update/delete races
+follow PostgreSQL committed ordering without resurrection or distributed locking.
+Version 1.4.2 introduces no general optimistic-locking/version column: concurrent
+edits of the same field are not protected against last-writer-wins changes.

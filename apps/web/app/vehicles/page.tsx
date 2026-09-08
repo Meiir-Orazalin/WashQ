@@ -3,7 +3,7 @@ import { Vehicles } from '@/components/vehicles';
 
 export const metadata: Metadata = {
   title: 'Your vehicles · WashQueue KZ',
-  description: 'Add and view your saved vehicles.',
+  description: 'Add, view, edit and delete your saved vehicles.',
 };
 
 export default function VehiclesPage() {
