@@ -131,6 +131,7 @@ export function LoginForm() {
         <p className="authenticated-email">{authentication.currentUser.email}</p>
         <p>Full customer dashboard functionality will be added in a later version.</p>
         <div className="authentication-actions">
+          <Link href="/vehicles">Your vehicles</Link>
           <button
             className="secondary-button"
             type="button"

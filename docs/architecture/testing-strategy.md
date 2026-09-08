@@ -150,6 +150,39 @@ retain screenshots, video, an HTML report, and an attached method/path/status
 timeline that never records headers, bodies, queries, cookie values, or
 credentials.
 
+## Version 1.4.1 vehicle verification
+
+Contract tests cover strict public boundaries, ownership spoof rejection,
+whitespace/NFKC/Unicode normalization, equivalent plates, nullable optionals and
+UTC-year boundaries using controlled time. Application and HTTP tests cover the
+minimum principal, scoped authentication, normalization, projection, generic
+401, controlled 409 and sanitized infrastructure failures. Existing public auth,
+health, registration and login suites remain regression gates.
+
+Real PostgreSQL tests verify canonical persistence, owner isolation, deterministic
+ordering, composite uniqueness, identical plates under different owners,
+foreign keys, cascading user deletion, indexes and timezone-aware timestamps.
+Concurrent equivalent authenticated HTTP creates must yield exactly one 201,
+one 409 and one row, without affecting another owner. The separate disposable
+migration command applies all history and checks drift without resetting data.
+
+Frontend tests exercise loading, empty/list/error states, accessible forms,
+duplicate submission prevention, safe conflicts, memory-only token callbacks,
+logout/401 clearing and delayed previous-user responses. Token presence tests
+use test-only callback classification; credentials never enter markup.
+
+`pnpm test:e2e:vehicles` reuses the Version 1.3.2 built-stack configuration and
+namespaced fixture/trace-cleanup harness in `e2e/live-auth/vehicles.spec.ts`.
+Chromium and WebKit cover mobile-width keyboard interaction, persisted creation
+after reload/restoration, ownership across browser contexts, concurrent duplicate
+HTTP requests, and two-tab A-to-B switches with a deliberately delayed A list
+response. Storage, markup, cookie omission and browser console checks compare
+secrets in memory and assert booleans without printing credentials. Fixture cleanup
+now verifies vehicle and session counts independently after user deletion.
+The existing browser workflow runs vehicle scenarios after its auth gate, using
+the same artifact sanitization policy. Root E2E imports the existing contracts
+workspace package through its public entry point; this adds no external package.
+
 ## Rules
 
 - Business rules require unit tests and boundary-level coverage where they are

@@ -27,6 +27,8 @@ export interface LiveAuthUser {
 }
 
 interface DatabaseCleanup {
+  deletedVehicles: number;
+  remainingVehicles: number;
   deletedSessions: number;
   deletedUsers: number;
   remainingSessions: number;
@@ -130,6 +132,10 @@ export async function cleanupRunNamespace(): Promise<DatabaseCleanup> {
 
 export async function inspectLatestFamily(email: string): Promise<LatestFamilyState> {
   return runDatabaseCommand('inspect-latest-family', [email]);
+}
+
+export async function inspectVehicleCount(email: string): Promise<{ vehicles: number }> {
+  return runDatabaseCommand('inspect-vehicles', [email]);
 }
 
 export async function login(page: Page, user: LiveAuthUser) {
@@ -382,6 +388,7 @@ async function runDatabaseCommand<Result>(action: string, argumentsAfterAction: 
 }
 
 function assertCleanupComplete(cleanup: DatabaseCleanup) {
+  expect(cleanup.remainingVehicles).toBe(0);
   expect(cleanup.remainingUsers).toBe(0);
   expect(cleanup.remainingSessions).toBe(0);
 }

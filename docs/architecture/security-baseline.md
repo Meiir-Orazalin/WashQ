@@ -128,7 +128,33 @@ before they are implemented.
   provides no mutual exclusion, closes with the provider, and has no
   localStorage, polling, or credential-sharing fallback.
 
-## Explicit future boundaries
+## Protected vehicles (Version 1.4.1)
+
+- A route-scoped guard reuses existing access-token and current-user checks.
+  Deleted users receive the same generic 401. No global guard protects public routes.
+- Ownership is derived exclusively from the verified `userId` principal, never
+  request fields, query strings, cookies or client state. Both create and list
+  require it; list queries always filter by owner. Public mapping excludes ownership.
+- Strict shared contracts reject unknown fields and canonicalize plates before
+  the owner/plate unique constraint resolves duplicate races. User deletion
+  cascades to vehicles and refresh sessions.
+- The authentication context exposes no token field. `runWithAccessToken`
+  temporarily supplies the current token to an operation bound to its rendered
+  identity and rejects stale identity/generation results. A current-token generic
+  401 clears local authentication without refresh or retry; an old request cannot
+  sign out a newer account.
+- Protected vehicle data and forms render only while authenticated. Leaving that
+  state or changing user unmounts the feature boundary, aborts requests, cancels
+  queries and removes the old owner's cache. Delayed A responses cannot populate
+  B's cache or UI. Mutation variables contain vehicle input only, never tokens.
+- Bearer vehicle calls omit credentials and never read the refresh cookie.
+  Query keys contain only `vehicles` and the current user ID. No token is persisted
+  or rendered, and no global client token/interceptor is introduced.
+- Existing short-lived access tokens are not blacklisted by logout. Frontend
+  logout hides and removes vehicle data immediately, but possession of an
+  unexpired access token remains sufficient until expiration unless its user is deleted.
+
+## Remaining future boundaries
 
 Global authentication guards and authorization arrive in later Version 1
 slices and must default to denial for protected use cases. Global logout, rate

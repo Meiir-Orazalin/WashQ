@@ -14,7 +14,8 @@ same-origin tabs with a Web Lock. Version 1.3.1 adds non-sensitive cross-tab
 lifecycle notification and makes refresh plus `/auth/me` the identity authority
 for every frontend refresh path. Version 1.3.2 adds repeatable built-browser
 lifecycle and database assertions without changing production authentication
-behavior. Global guards and protected business endpoints remain absent.
+behavior. Version 1.4.1 reuses verified current-user authentication in an
+endpoint-scoped vehicle guard. Global guards remain absent.
 
 ## Boundaries
 
@@ -182,6 +183,15 @@ authentication failure.
 The Bearer authentication adapter is scoped only to `/auth/me`. Later protected
 endpoints may reuse the narrow reader and application boundary, but Version
 1.2.5 introduces no global guard and protects no unrelated route.
+
+## Endpoint-scoped authentication reuse
+
+Version 1.4.1 exposes `CurrentCustomerGuard` and `GetCurrentUserUseCase` through
+the auth module for explicitly protected endpoints. The guard uses the same
+Bearer reader and generic `AUTHENTICATION_REQUIRED` behavior as `/auth/me`,
+including deleted-user checks. It attaches only an immutable `userId` principal,
+not a token, JWT claims or a user record. Vehicles cannot access auth persistence.
+Registration, login, refresh, logout and health remain public as before.
 
 ## Frontend login flow
 

@@ -90,6 +90,9 @@ jobs:
       - name: Run Chromium authentication smoke
         run: pnpm test:e2e:auth-smoke
 
+      - name: Run protected vehicle browser scenarios
+        run: pnpm test:e2e:vehicles --project=chromium-auth
+
       - name: Sanitize authentication trace artifacts
         id: sanitize
         if: always()
@@ -188,6 +191,9 @@ jobs:
           --config=playwright.auth.config.ts
           --grep @auth-matrix
           --project=${{ matrix.project }}
+
+      - name: Run protected vehicle browser scenarios
+        run: pnpm test:e2e:vehicles --project=${{ matrix.project }}
 
       - name: Sanitize authentication trace artifacts
         id: sanitize

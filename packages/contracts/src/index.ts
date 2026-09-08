@@ -24,3 +24,14 @@ export {
 } from './login.js';
 export { refreshResponseSchema, type RefreshResponse } from './refresh.js';
 export { currentUserResponseSchema, type CurrentUserResponse } from './current-user.js';
+export {
+  createVehicleRequestSchema,
+  publicVehicleSchema,
+  createVehicleResponseSchema,
+  vehicleListResponseSchema,
+  type CreateVehicleRequest,
+  type CreateVehicleInput,
+  type PublicVehicle,
+  type CreateVehicleResponse,
+  type VehicleListResponse,
+} from './vehicle.js';

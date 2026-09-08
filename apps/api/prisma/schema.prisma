@@ -17,8 +17,26 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   refreshSessions RefreshSession[]
+  vehicles        Vehicle[]
 
   @@map("users")
+}
+
+model Vehicle {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId    String   @map("owner_user_id") @db.Uuid
+  make           String   @db.VarChar(60)
+  model          String   @db.VarChar(60)
+  plateNumber    String   @map("plate_number") @db.VarChar(20)
+  productionYear Int?     @map("production_year")
+  color          String?  @db.VarChar(40)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  owner          User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerUserId, plateNumber])
+  @@index([ownerUserId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("vehicles")
 }
 
 model RefreshSession {
