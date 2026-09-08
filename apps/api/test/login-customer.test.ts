@@ -92,7 +92,12 @@ describe('LoginCustomerUseCase', () => {
     rotateSession.mockReset();
 
     useCase = new LoginCustomerUseCase(
-      { create: createUser, findAuthenticationByEmail, findPublicById },
+      {
+        create: createUser,
+        findAuthenticationByEmail,
+        findPublicById,
+        updateCurrentUserProfile: vi.fn(),
+      },
       { hash: hashPassword, verify: verifyPassword, verifyDummy },
       { issue: issueAccessToken, verify: verifyAccessToken },
       { generate: generateRefreshToken },

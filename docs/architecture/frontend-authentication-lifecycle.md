@@ -97,10 +97,47 @@ state after a newer operation.
 { "type": "logout", "sourceId": "ephemeral-per-document-id" }
 ```
 
+```json
+{ "type": "profile-changed", "sourceId": "ephemeral-per-document-id" }
+```
+
 The channel is not an authentication store. It closes on provider cleanup,
 ignores self-originated messages, rejects malformed or extended payloads, and
 contains no credentials, user data, session metadata, API responses, or
 timestamps. See [ADR 0012](../decisions/0012-non-sensitive-cross-tab-auth-lifecycle-events.md).
+
+## Profile synchronization (Version 1.5)
+
+`/profile` reads currentUser directly from AuthenticationProvider, with no second
+query/cache. Only authenticated state mounts an identity-keyed profile subtree;
+every other state removes old names, edit controls and pending form state and uses
+the existing safe session/recovery presentation. Email is read-only. The form
+submits only changed names through shared validation, supports last-name clearing,
+announces pending/errors/success and restores focus to Edit after save/cancel.
+
+`useProfileUpdate` retains only temporary pending/error state, an in-flight latch
+and AbortController. Neither tokens nor mutation payload/results enter TanStack
+Query. `runWithCurrentUserUpdate` wraps the existing token capability, captures the
+identity generation, validates the strict response and matching user ID, and uses
+a functional user-only commit so an independently refreshed token is preserved.
+Only a successful authoritative local commit publishes `profile-changed`, not
+`session-changed`. The feature aborts on unmount and suppresses old feedback.
+
+An authenticated receiver retains its token and calls `/auth/me` once. A current
+401 clears authentication; other current failures use existing safe error recovery.
+There is no refresh or retry solely for this event. An old-token 401 cannot clear
+a newer verified token. Results are ignored after login, logout, account switching
+or a newer profile read/commit. Non-authenticated receivers do nothing; remote
+events are never rebroadcast.
+
+A memory-only profile-read marker prevents an older remote `/me` response from
+overwriting a newer local profile commit without invalidating a cookie rotation.
+Routine refresh still verifies `/me` for the new token. If a newer profile operation
+overlaps that read, it retains the newer same-account projection while committing
+the verified new token; a different verified account still changes the entire pair.
+No database version counter or optimistic locking is introduced. Concurrent writes
+remain last-write-wins, and transient notifications are not durable delivery: normal
+restoration and mandatory refresh-time `/me` remain recovery paths for missed events.
 
 ## Document termination
 

@@ -81,6 +81,7 @@ describe('POST /api/v1/auth/login', () => {
     nodeEnv: 'development' | 'test' | 'production',
   ): Promise<INestApplication> {
     const userRepository: UserRepository = {
+      updateCurrentUserProfile: async () => null,
       create: async () => {
         throw new Error('registration is not used by login tests');
       },

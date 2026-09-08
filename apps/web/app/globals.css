@@ -490,6 +490,30 @@ footer {
   margin-top: 1rem;
 }
 
+.profile-card {
+  overflow-wrap: anywhere;
+}
+.profile-card > .authentication-actions {
+  margin-top: 2rem;
+}
+.profile-details {
+  margin: 0 0 1.5rem;
+}
+.profile-details dt {
+  font-weight: 700;
+}
+.profile-details dd {
+  margin: 0.35rem 0 1rem;
+}
+.profile-card input[readonly] {
+  background: var(--background);
+}
+.profile-card .secondary-button:focus-visible,
+.profile-card a:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+
 @media (max-width: 42rem) {
   .vehicle-layout {
     grid-template-columns: minmax(0, 1fr);

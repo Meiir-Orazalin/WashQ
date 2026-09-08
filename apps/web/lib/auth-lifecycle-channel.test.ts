@@ -79,9 +79,12 @@ describe('auth lifecycle channel', () => {
     channel?.publishSessionChanged();
     channel?.publishLogout();
 
+    channel?.publishProfileChanged();
+
     expect(broadcast.postedMessages).toEqual([
       { type: 'session-changed', sourceId: 'ephemeral-document-id' },
       { type: 'logout', sourceId: 'ephemeral-document-id' },
+      { type: 'profile-changed', sourceId: 'ephemeral-document-id' },
     ]);
     for (const payload of broadcast.postedMessages) {
       expect(Object.keys(payload as AuthLifecycleEvent).sort()).toEqual(['sourceId', 'type']);
@@ -112,10 +115,18 @@ describe('auth lifecycle channel', () => {
     broadcast.dispatch({ type: 'unknown', sourceId: 'remote-document' });
     broadcast.dispatch({ type: 'session-changed', sourceId: 'remote-document' });
     broadcast.dispatch({ type: 'logout', sourceId: 'other-document' });
+    broadcast.dispatch({ type: 'profile-changed', sourceId: 'local-document' });
+    broadcast.dispatch({
+      type: 'profile-changed',
+      sourceId: 'other-document',
+      userId: 'must-be-rejected',
+    });
+    broadcast.dispatch({ type: 'profile-changed', sourceId: 'other-document' });
 
     expect(subscriber.mock.calls).toEqual([
       [{ type: 'session-changed', sourceId: 'remote-document' }],
       [{ type: 'logout', sourceId: 'other-document' }],
+      [{ type: 'profile-changed', sourceId: 'other-document' }],
     ]);
   });
 

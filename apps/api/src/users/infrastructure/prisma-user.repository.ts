@@ -8,6 +8,7 @@ import {
   type RegisteredUser,
   type UserAuthenticationRecord,
   type UserRepository,
+  type UserProfilePatch,
 } from '../application/user-repository.js';
 
 @Injectable()
@@ -63,5 +64,18 @@ export class PrismaUserRepository implements UserRepository {
         email: true,
       },
     });
+  }
+
+  async updateCurrentUserProfile(id: string, patch: UserProfilePatch): Promise<PublicUser | null> {
+    // One atomic mutation; only names can reach data, and no credential is selected.
+    const [user] = await this.prisma.user.updateManyAndReturn({
+      where: { id },
+      data: {
+        ...(patch.firstName !== undefined ? { firstName: patch.firstName } : {}),
+        ...(patch.lastName !== undefined ? { lastName: patch.lastName } : {}),
+      },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    return user ?? null;
   }
 }

@@ -5,6 +5,8 @@ import {
   loginResponseSchema,
   refreshResponseSchema,
   registrationResponseSchema,
+  updateCurrentUserProfileRequestSchema,
+  type UpdateCurrentUserProfileRequest,
   type CurrentUserResponse,
   type HealthResponse,
   type LoginRequest,
@@ -92,6 +94,7 @@ export async function getCurrentUser(accessToken: string): Promise<CurrentUserRe
   try {
     response = await fetch(`${publicEnvironment.NEXT_PUBLIC_API_BASE_URL}/auth/me`, {
       credentials: 'omit',
+      cache: 'no-store',
       headers: {
         Accept: 'application/json',
         Authorization: `Bearer ${accessToken}`,
@@ -112,6 +115,38 @@ export async function getCurrentUser(accessToken: string): Promise<CurrentUserRe
     throw new ApiClientError('The API returned an invalid current-user response');
   }
 
+  return parsed.data;
+}
+
+export async function updateCurrentUserProfile(
+  accessToken: string,
+  input: UpdateCurrentUserProfileRequest,
+  signal?: AbortSignal,
+): Promise<CurrentUserResponse> {
+  const values = updateCurrentUserProfileRequestSchema.safeParse(input);
+  if (!values.success) throw new ApiClientError('Invalid profile data', 400, 'VALIDATION_ERROR');
+  let response: Response;
+  try {
+    response = await fetch(`${publicEnvironment.NEXT_PUBLIC_API_BASE_URL}/users/me`, {
+      method: 'PATCH',
+      credentials: 'omit',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(values.data),
+      ...(signal ? { signal } : {}),
+    });
+  } catch {
+    throw new ApiClientError('The profile request could not be completed');
+  }
+  const payload = await readJson(response, 'The API returned an invalid current-user response');
+  if (!response.ok) throw toApiClientError(payload, response.status, 'The profile update failed');
+  const parsed = currentUserResponseSchema.safeParse(payload);
+  if (!parsed.success)
+    throw new ApiClientError('The API returned an invalid current-user response');
   return parsed.data;
 }
 

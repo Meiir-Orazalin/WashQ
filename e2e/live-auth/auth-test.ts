@@ -202,7 +202,7 @@ export function expectSafeLifecycleEvents(events: readonly unknown[]) {
   for (const event of events) {
     expect(event).toEqual({
       sourceId: expect.any(String),
-      type: expect.stringMatching(/^(session-changed|logout)$/),
+      type: expect.stringMatching(/^(session-changed|logout|profile-changed)$/),
     });
     expect(Object.keys(event as Record<string, unknown>).sort()).toEqual(['sourceId', 'type']);
     expect(JSON.stringify(event)).not.toMatch(

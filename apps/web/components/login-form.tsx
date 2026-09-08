@@ -132,6 +132,7 @@ export function LoginForm() {
         <p>Full customer dashboard functionality will be added in a later version.</p>
         <div className="authentication-actions">
           <Link href="/vehicles">Your vehicles</Link>
+          <Link href="/profile">Your profile</Link>
           <button
             className="secondary-button"
             type="button"

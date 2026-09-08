@@ -21,7 +21,8 @@ could then disagree.
 
 - Use the native `BroadcastChannel` API on the stable
   `washqueue-auth-events-v1` channel for notification only.
-- Send exactly `session-changed` or `logout` plus an ephemeral, per-document
+- Send `session-changed`, `logout`, or the Version 1.5 `profile-changed` extension
+  plus an ephemeral, per-document
   `sourceId`. The identifier is generated in memory and is not persisted.
 - Never send access tokens, refresh tokens, cookies, user data, session IDs,
   family IDs, credentials, API responses, or mutable identity claims.
@@ -61,6 +62,16 @@ could then disagree.
   ADR 0011's Web Lock remains the mutation-serialization primitive.
 
 ## Consequences
+
+Version 1.5 extends this notification-only decision with exactly
+`{ type: "profile-changed", sourceId }`. No profile or identity value is included.
+A successful generation-safe local name update commits the strict public user
+and broadcasts once without rotating the refresh cookie. Authenticated receivers
+use their existing token for `/auth/me`; they never refresh or rebroadcast solely
+for this event. Identity generations and profile-read ordering suppress stale
+results, including old-account errors. Failed current verification uses existing
+safe authentication recovery. Non-authenticated receivers ignore the event.
+This changes no cookie-lock, credential-storage or persistence decision.
 
 Supported same-origin tabs promptly converge on the account selected by the
 latest explicit login without sharing credentials or user data. Each receiving

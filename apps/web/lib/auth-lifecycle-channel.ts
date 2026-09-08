@@ -2,6 +2,10 @@ export const authLifecycleChannelName = 'washqueue-auth-events-v1';
 
 export type AuthLifecycleEvent =
   | {
+      type: 'profile-changed';
+      sourceId: string;
+    }
+  | {
       type: 'session-changed';
       sourceId: string;
     }
@@ -23,6 +27,7 @@ type OpenBroadcastChannel = (name: string) => BroadcastChannelPort | undefined;
 type CreateSourceId = () => string;
 
 export interface AuthLifecycleChannel {
+  publishProfileChanged(): void;
   publishSessionChanged(): void;
   publishLogout(): void;
   subscribe(listener: AuthLifecycleEventListener): () => void;
@@ -83,6 +88,9 @@ export function createAuthLifecycleChannel(
   }
 
   return {
+    publishProfileChanged() {
+      publish('profile-changed');
+    },
     publishSessionChanged() {
       publish('session-changed');
     },
@@ -138,7 +146,9 @@ function isAuthLifecycleEvent(value: unknown): value is AuthLifecycleEvent {
     keys.length === 2 &&
     keys.includes('type') &&
     keys.includes('sourceId') &&
-    (value.type === 'session-changed' || value.type === 'logout') &&
+    (value.type === 'session-changed' ||
+      value.type === 'logout' ||
+      value.type === 'profile-changed') &&
     typeof value.sourceId === 'string' &&
     value.sourceId.length > 0
   );

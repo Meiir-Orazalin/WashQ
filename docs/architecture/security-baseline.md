@@ -1,5 +1,27 @@
 # Security baseline
 
+## Current-customer profile (Version 1.5)
+
+- Only names are mutable, through `PATCH /users/me` with the existing scoped
+  verified Bearer principal. Body and query identity spoofing is rejected. Email,
+  password, ownership and session changes are outside this endpoint.
+- Persistence explicitly allowlists name writes and selects only the public
+  projection; passwordHash is not selected for the result. Missing/deleted/race-time
+  deleted identity uses generic 401, never an identity-revealing 404.
+- The provider remains the only current-user store. Its update capability checks
+  identity generation and expected account before committing and preserves the
+  latest in-memory token. Profile forms unmount on any authentication transition.
+  Old success, 401 or 500 cannot update, notify or invalidate a newer account.
+- The only new channel payload is `{ type: "profile-changed", sourceId }`.
+  No identity, name, email, response or credential crosses BroadcastChannel.
+  Receivers use their own token for `/auth/me`; profile notification alone never
+  causes refresh, cookie rotation or rebroadcast. Current failed verification
+  clears protected UI without retry; stale verification results are ignored.
+- Profile transport omits credentials and browser caching. Tokens enter neither
+  markup, URL, storage nor query/mutation caches. Form state is temporary; no
+  second profile cache is introduced. No global guard, role assumption, new
+  dependency or migration is added.
+
 The project establishes safeguards only as the corresponding business slices
 arrive and does not imply that authentication endpoints or authorization exist
 before they are implemented.

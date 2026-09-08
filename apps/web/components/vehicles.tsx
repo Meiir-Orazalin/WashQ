@@ -40,6 +40,7 @@ export function Vehicles() {
       </p>
       <div className="authentication-actions">
         <Link href="/login">Manage sign-in</Link>
+        <Link href="/profile">Your profile</Link>
         <button
           className="secondary-button"
           type="button"

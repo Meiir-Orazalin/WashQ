@@ -1,5 +1,28 @@
 # API conventions
 
+## Current-customer profile (Version 1.5)
+
+`PATCH /api/v1/users/me` reuses endpoint-scoped Bearer authentication and accepts
+only a strict, nonempty partial `{ firstName?, lastName? }`. No query parameters
+are accepted. ID, email, ownership, credentials, session and all unknown fields
+are rejected. Registration's exact name schemas are reused: trim surrounding
+whitespace, preserve casing and internal whitespace, and require 2–60 characters
+for nonempty names. First name cannot be null; last name null or blank clears it.
+An omitted field is retained.
+
+Success is 200 with the existing strict current-user response:
+`{ user: { id, firstName, lastName, email } }`. There is no new public-user schema.
+Invalid/empty input returns `400 VALIDATION_ERROR`; missing, invalid, expired,
+deleted or race-time deleted identity returns `401 AUTHENTICATION_REQUIRED` with
+the existing generic message. Unexpected failures are sanitized
+`500 INTERNAL_SERVER_ERROR`. There is no 404 identity-lifecycle distinction.
+OpenAPI documents these four statuses, strict partial names and Bearer security.
+
+`updateCurrentUserProfile(accessToken, input)` uses explicit Bearer, PATCH,
+`credentials: "omit"`, `cache: "no-store"`, abort support and strict request/response
+parsing. It neither reads cookies nor retries automatically. Successful updates
+do not set, rotate or clear a cookie and do not modify access tokens or sessions.
+
 ## Transport
 
 - REST over JSON.

@@ -42,6 +42,7 @@ describe('POST /api/v1/auth/register', () => {
       verifyDummy: async () => undefined,
     };
     const userRepository: UserRepository = {
+      updateCurrentUserProfile: async () => null,
       create: async (user: CreateUser) => {
         if (failUnexpectedly) {
           throw new Error('database constraint users_email_key at internal.example');

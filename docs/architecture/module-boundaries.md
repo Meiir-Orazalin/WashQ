@@ -1,5 +1,29 @@
 # Module boundaries
 
+## Current-customer profile (Version 1.5)
+
+`UsersHttpModule` composes the existing `AuthModule` public scoped guard with
+`UsersModule`'s exported `UpdateCurrentUserProfileUseCase`. This small HTTP-only
+composition avoids a Nest module cycle: authentication already consumes the users
+port, while users persistence must not import authentication. No second profile
+store or authentication system is introduced. `UsersController` lives in users
+presentation, not in AuthController, and reuses the existing current-user mapper
+and response DTO.
+
+The use case validates the shared partial-name contract and passes the verified
+principal ID separately to `UserRepository.updateCurrentUserProfile`. The Prisma
+adapter performs one ID-filtered `updateManyAndReturn`, explicitly writes only
+supplied names and selects only id, firstName, lastName and email. A missing row
+becomes a controlled application outcome mapped to the existing generic 401.
+Unexpected failures reach the existing sanitized HTTP filter. No vehicle or
+session port is involved.
+
+Frontend transport uses the existing central API client. `profile-edit-form`
+translates changed controls; `useProfileUpdate` owns temporary pending/failure
+state and cancellation. The provider's generation-safe public-user commit
+capability owns authoritative state and notification, not feature-specific forms.
+There is no profile query cache, mutation-result cache, token copy or dependency.
+
 Future backend business modules are created only when their first use case is
 implemented. Each module uses these internal areas:
 

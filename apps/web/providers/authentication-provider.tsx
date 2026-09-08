@@ -1,6 +1,10 @@
 'use client';
 
-import type { LoginUser } from '@washqueue/contracts';
+import {
+  currentUserResponseSchema,
+  type CurrentUserResponse,
+  type LoginUser,
+} from '@washqueue/contracts';
 import {
   createContext,
   useCallback,
@@ -57,6 +61,9 @@ export interface AuthenticationState {
 
 interface AuthenticationContextValue extends Omit<AuthenticationState, 'accessToken'> {
   runWithAccessToken<T>(operation: (accessToken: string) => Promise<T>): Promise<T>;
+  runWithCurrentUserUpdate(
+    operation: (accessToken: string) => Promise<CurrentUserResponse>,
+  ): Promise<boolean>;
   beginAuthentication(): number | null;
   isAuthenticationOperationCurrent(operationGeneration: number): boolean;
   completeAuthentication(
@@ -102,6 +109,8 @@ export function AuthenticationProvider({
   const stateRef = useRef(state);
   const mountedRef = useRef(false);
   const operationGenerationRef = useRef(0);
+  // Invalidates older profile reads without invalidating an in-flight cookie rotation.
+  const profileProjectionRef = useRef<object>({});
   const lifecycleChannelRef = useRef<AuthLifecycleChannel | null>(null);
   const pendingLifecycleBroadcastRef = useRef<{
     type: AuthLifecycleEvent['type'];
@@ -295,6 +304,82 @@ export function AuthenticationProvider({
     [clearAuthentication, renderedUserId],
   );
 
+  const runWithCurrentUserUpdate = useCallback(
+    async (operation: (accessToken: string) => Promise<CurrentUserResponse>): Promise<boolean> => {
+      const generation = operationGenerationRef.current;
+      const result = await runWithAccessToken(operation);
+      if (!isCurrentStatus(generation, 'authenticated') || logoutIntentRef.current) return false;
+      const parsed = currentUserResponseSchema.safeParse(result);
+      if (
+        !parsed.success ||
+        parsed.data.user.id !== renderedUserId ||
+        stateRef.current.currentUser?.id !== renderedUserId
+      ) {
+        throw new ApiClientError('The API returned an invalid current-user response');
+      }
+      profileProjectionRef.current = {};
+      // Functional commit preserves a newer access token from routine refresh.
+      setState((current) =>
+        operationGenerationRef.current === generation &&
+        current.status === 'authenticated' &&
+        current.currentUser?.id === renderedUserId
+          ? { ...current, currentUser: parsed.data.user }
+          : current,
+      );
+      pendingLifecycleBroadcastRef.current = { type: 'profile-changed', generation };
+      return true;
+    },
+    [renderedUserId, runWithAccessToken],
+  );
+
+  const synchronizeAfterRemoteProfileChange = useCallback(() => {
+    const snapshot = stateRef.current;
+    if (
+      !mountedRef.current ||
+      logoutIntentRef.current ||
+      explicitLoginIntentRef.current ||
+      snapshot.status !== 'authenticated' ||
+      !snapshot.accessToken ||
+      !snapshot.currentUser
+    )
+      return;
+    const token = snapshot.accessToken;
+    const generation = operationGenerationRef.current;
+    const profileRead = {};
+    profileProjectionRef.current = profileRead;
+    const isCurrent = () =>
+      isCurrentStatus(generation, 'authenticated') &&
+      !logoutIntentRef.current &&
+      stateRef.current.currentUser?.id === snapshot.currentUser?.id &&
+      profileProjectionRef.current === profileRead;
+
+    async function synchronize() {
+      try {
+        const result = currentUserResponseSchema.parse(await getCurrentUser(token));
+        if (!isCurrent()) return;
+        if (result.user.id !== snapshot.currentUser?.id) {
+          clearAuthentication('error');
+          return;
+        }
+        setState((current) =>
+          isCurrent() && current.currentUser?.id === result.user.id
+            ? { ...current, currentUser: result.user }
+            : current,
+        );
+      } catch (error) {
+        if (!isCurrent()) return;
+        // An expired older token must not clear a newer, independently verified token.
+        if (
+          isAuthenticationRequired(error) &&
+          stateRef.current.accessToken !== snapshot.accessToken
+        )
+          return;
+        clearAuthentication(isAuthenticationRequired(error) ? 'unauthenticated' : 'error');
+      }
+    }
+    void synchronize();
+  }, [clearAuthentication]);
+
   const synchronizeAfterRemoteSessionChange = useCallback(() => {
     if (!mountedRef.current || logoutIntentRef.current) {
       return;
@@ -368,6 +453,10 @@ export function AuthenticationProvider({
     lifecycleChannelRef.current = lifecycleChannel;
 
     function handleLifecycleEvent(event: AuthLifecycleEvent) {
+      if (event.type === 'profile-changed') {
+        synchronizeAfterRemoteProfileChange();
+        return;
+      }
       if (event.type === 'logout') {
         logoutIntentRef.current = true;
         explicitLoginIntentRef.current = false;
@@ -468,6 +557,7 @@ export function AuthenticationProvider({
     lifecycleChannelFactory,
     refreshCoordinator,
     synchronizeAfterRemoteSessionChange,
+    synchronizeAfterRemoteProfileChange,
   ]);
 
   useEffect(() => {
@@ -477,7 +567,7 @@ export function AuthenticationProvider({
     }
 
     const canPublish =
-      (pending.type === 'session-changed' &&
+      ((pending.type === 'session-changed' || pending.type === 'profile-changed') &&
         state.status === 'authenticated' &&
         Boolean(state.accessToken) &&
         Boolean(state.currentUser)) ||
@@ -496,6 +586,8 @@ export function AuthenticationProvider({
     try {
       if (pending.type === 'session-changed') {
         lifecycleChannel.publishSessionChanged();
+      } else if (pending.type === 'profile-changed') {
+        lifecycleChannel.publishProfileChanged();
       } else {
         lifecycleChannel.publishLogout();
       }
@@ -548,6 +640,7 @@ export function AuthenticationProvider({
           return;
         }
 
+        const profileRead = profileProjectionRef.current;
         const currentUser = await getCurrentUser(refreshed.accessToken);
         if (!isCurrentAuthenticatedToken(generation, originalToken)) {
           return;
@@ -560,12 +653,16 @@ export function AuthenticationProvider({
 
         indeterminateTokenRef.current = null;
         setRefreshScheduleMode('proactive');
-        setState({
+        setState((current) => ({
           accessToken: refreshed.accessToken,
           accessTokenExpiresAt: refreshed.accessTokenExpiresAt,
-          currentUser: currentUser.user,
+          currentUser:
+            profileRead !== profileProjectionRef.current &&
+            current.currentUser?.id === currentUser.user.id
+              ? current.currentUser
+              : currentUser.user,
           status: 'authenticated',
-        });
+        }));
       } catch (error) {
         if (!isCurrentAuthenticatedToken(generation, originalToken)) {
           return;
@@ -710,6 +807,7 @@ export function AuthenticationProvider({
       currentUser: state.currentUser,
       accessTokenExpiresAt: state.accessTokenExpiresAt,
       runWithAccessToken,
+      runWithCurrentUserUpdate,
       beginAuthentication,
       isAuthenticationOperationCurrent,
       completeAuthentication,
@@ -721,6 +819,7 @@ export function AuthenticationProvider({
     [
       state,
       runWithAccessToken,
+      runWithCurrentUserUpdate,
       beginAuthentication,
       isAuthenticationOperationCurrent,
       completeAuthentication,
