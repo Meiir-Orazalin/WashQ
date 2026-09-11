@@ -1,5 +1,50 @@
 # Local setup
 
+## Version 2.1 organization verification
+
+Keep the valid ignored `.env` private. Start the existing container without resetting
+data. Generate the client and deploy the one new forward migration to both databases:
+
+```bash
+pnpm install --frozen-lockfile
+docker compose up -d
+pnpm db:generate
+pnpm --filter @washqueue/api db:migrate:deploy
+pnpm --filter @washqueue/api exec prisma migrate status
+NODE_ENV=test pnpm --filter @washqueue/api db:migrate:deploy
+NODE_ENV=test pnpm --filter @washqueue/api exec prisma migrate status
+pnpm test:vehicle-migration
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 pnpm build
+AUTH_E2E_RUN_ID=local-organizations AUTH_E2E_USE_SYSTEM_CHROME=true pnpm test:e2e:organizations
+```
+
+The organization command starts built API/web and runs both qualified browsers.
+Also run format/lint/typecheck/unit/integration/general E2E/auth smoke/profile/
+vehicle/build gates and the dev/test drift commands below. The disposable migration
+verifier checks all five migrations, keeps vehicle assertions and adds membership
+integrity checks. It never resets an existing database.
+
+For live review, register/login an exact temporary account, follow Your organizations,
+confirm empty state, create a name with NFKC/extra spaces and a multiline description,
+open owner detail, reload and verify restoration/persistence. Names may repeat.
+Use a second account to compare a foreign detail with a random UUID: both return
+the same 404 code/message. Never print Bearer credentials or raw request headers.
+
+In two shared-cookie tabs, display A's list/detail, delay an A read, and explicitly
+log in as B elsewhere. Old content must disappear while synchronizing. Release
+the response and verify no old data or failure affects B. Check both QueryClient
+key families, ordinary-text description rendering, keyboard labels/errors,
+announced pending/success/failure states and desktop/mobile overflow.
+
+Inspect timestamps, indexes, membership uniqueness, OWNER role and FK actions
+without selecting credentials. The built repository rollback test deterministically
+fails the owner FK and confirms no organization remains. Inspect browser storage,
+markup and logs using boolean secret/ownership comparisons. Delete only temporary
+organizations first, then temporary users; organization membership prevents direct
+user deletion. Confirm zero organizations/memberships/users/vehicles/sessions.
+After interrupted runs, use the exact run ID with `pnpm test:e2e:auth-cleanup`;
+it reports cleanup leaks and refuses shared non-fixture organizations.
+
 ## Version 1.5 profile verification
 
 Keep the existing ignored `.env`; never print credentials or reset local data.

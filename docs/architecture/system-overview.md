@@ -44,8 +44,13 @@ lifecycle through built browser/CI tests. Version 1.4.1 adds authenticated
 customer vehicle creation and listing, a vehicle-scoped Bearer guard, strict
 public contracts, and an identity-scoped frontend query cache. Version 1.4.2 adds
 owner-scoped editing and permanent deletion through the same boundaries, with
-identity-scoped frontend mutations and no schema change. Global guards and
-organization capabilities do not exist.
+identity-scoped frontend mutations and no schema change. Version 1.5 adds profile
+name editing with authoritative, generation-safe current-user updates and
+non-sensitive profile-change notifications. Version 2.1 adds organization creation
+with atomic OWNER membership, owned list/detail and protected business routes.
+Ownership is organization-scoped, never a global user role. Global guards,
+branches and public organization discovery remain absent. See the
+[organization architecture](organizations.md).
 
 ## Runtime boundaries
 

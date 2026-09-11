@@ -29,13 +29,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const safeBody = this.getSafeBody(exception, status);
     const requestId = request.requestId || randomUUID();
+    // Query values may contain rejected ownership data or credentials; never reflect or log them.
+    const path = request.originalUrl.split('?')[0] || '/';
 
     if (status >= 500) {
       this.logger.error({
         event: 'request_failed',
         exceptionType: exception instanceof Error ? exception.name : 'UnknownError',
         method: request.method,
-        path: request.originalUrl,
+        path,
         requestId,
         status,
       });
@@ -44,7 +46,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const body: ApiErrorResponse = {
       error: safeBody,
       timestamp: new Date().toISOString(),
-      path: request.originalUrl,
+      path,
       requestId,
     };
 

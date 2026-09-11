@@ -258,6 +258,7 @@ footer {
   font-weight: 400;
 }
 
+.form-field textarea,
 .form-field input {
   width: 100%;
   border: 1px solid var(--border);
@@ -267,6 +268,7 @@ footer {
   background: white;
 }
 
+.form-field textarea:focus-visible,
 .form-field input:focus-visible,
 .password-visibility:focus-visible,
 .submit-button:focus-visible,
@@ -278,6 +280,7 @@ footer {
   outline-offset: 2px;
 }
 
+.form-field textarea[aria-invalid='true'],
 .form-field input[aria-invalid='true'] {
   border-color: var(--error);
 }
@@ -439,12 +442,14 @@ footer {
   }
 }
 /* Vehicle management shares existing accessible form controls. */
+.organizations-page,
 .vehicles-page {
   width: min(100% - 2rem, 70rem);
   margin: 2rem auto;
   overflow-wrap: anywhere;
 }
 
+.organization-layout,
 .vehicle-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -452,6 +457,7 @@ footer {
   margin-top: 2rem;
 }
 
+.organization-list,
 .vehicle-list {
   list-style: none;
   padding: 0;
@@ -459,6 +465,7 @@ footer {
   gap: 1rem;
 }
 
+.organization-list li,
 .vehicle-list li {
   border: 1px solid #bcc8d4;
   border-radius: 0.75rem;
@@ -468,6 +475,23 @@ footer {
 .vehicle-plate {
   font-weight: 700;
   letter-spacing: 0.05em;
+}
+
+.organization-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.organizations-page textarea {
+  resize: vertical;
+  min-height: 7rem;
+  max-width: 100%;
+  font: inherit;
+}
+
+.organizations-page a:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
 }
 
 .vehicle-actions {
@@ -515,6 +539,7 @@ footer {
 }
 
 @media (max-width: 42rem) {
+  .organization-layout,
   .vehicle-layout {
     grid-template-columns: minmax(0, 1fr);
   }

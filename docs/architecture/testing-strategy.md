@@ -1,5 +1,40 @@
 # Testing strategy
 
+## Version 2.1 organization verification
+
+Contracts cover NFKC/casing/whitespace, Unicode control rejection, nullable trimmed
+descriptions with CR/LF, limits, strict public envelopes and ownership/internal
+field rejection. Application and production-module HTTP tests cover trusted
+principal input, narrow projection, generic 401, identical foreign/missing 404,
+sanitized 500/log privacy, OpenAPI and unchanged public endpoints.
+
+PostgreSQL tests prove atomic organization/OWNER creation and rollback on failed
+membership, membership uniqueness, same-name organizations, deterministic owned
+listing, owner-only detail, restrictive user deletion, cascading organization
+cleanup and unchanged vehicle/session/user records. Existing migrations are not
+edited; the full-history vehicle-migration gate now also checks organization
+columns, timezone types, membership indexes and FK actions.
+
+Frontend tests cover form validation/pending latch/reset, plain-text descriptions,
+loading/empty/error/detail states, fail-closed auth states, list/detail cache
+removal and stale success/401/404/500 across identity switches and logout. The
+provider, profile and vehicle suites remain required regressions.
+
+`pnpm test:e2e:organizations` uses built API/web and PostgreSQL on the qualified
+Chrome/Chromium and WebKit projects. It covers mobile keyboard creation, owner
+detail/reload restoration, isolated account lists and private 404s, built production
+repository rollback, and two-tab switches with delayed old list/detail responses.
+Test-only QueryClient inspection, storage/markup checks and transient secret
+comparisons assert booleans rather than printing credentials. No Firefox claim.
+Fixture cleanup now verifies zero organizations, memberships, users, vehicles and
+sessions in integrity-safe order; shared non-fixture memberships stop cleanup.
+The existing browser workflow includes organization scenarios and trace sanitization.
+
+Run integration and live-browser gates sequentially when they use the same local
+test database. Older integration suites own database-wide fixture cleanup and
+must not overlap live browser fixture lifetimes. Independent CI jobs use isolated
+service databases. Do not treat an overlapping local run as release evidence.
+
 ## Version 1.5 profile verification
 
 Contract tests reuse registration normalization and cover strict nonempty partial

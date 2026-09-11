@@ -1,5 +1,31 @@
 # Database conventions
 
+## Organizations and OWNER membership (Version 2.1)
+
+Forward migration `20260911062954_add_organizations_and_owner_memberships` adds
+`organizations`: UUID id, name varchar(120), nullable description varchar(500),
+created_at/updated_at timestamptz(3). Names are normalized by shared contracts,
+not unique. It adds `organization_memberships`: UUID id, organization_id, user_id,
+organization-scoped enum role (only OWNER), and created_at timestamptz(3).
+
+Composite uniqueness `(organization_id, user_id)` supports membership lookup by
+organization and prevents duplicate memberships. `(user_id, role)` supports owned
+listing. The organization FK cascades on deletion; the user FK restricts deletion
+while a membership exists. Existing vehicle and refresh-session cascades remain
+unchanged. See [ADR 0013](../decisions/0013-organization-membership-ownership-and-deletion-integrity.md).
+
+Creation uses one repository transaction: insert organization, insert verified
+user's OWNER membership, commit. Membership failure rolls back the organization.
+No application Prisma transaction dependency or cross-module write is introduced.
+The schema permits future multiple owners but no owner-management endpoint exists.
+Fixtures delete their organizations first, then users; cleanup refuses organizations
+shared with unrelated members. No development reset is part of verification.
+
+All five migrations must apply to dev/test and a clean disposable database.
+`pnpm test:vehicle-migration` retains its vehicle assertions and now also verifies
+organization schema, membership indexes/FKs/timestamps and complete-history drift.
+Existing four applied migrations are unchanged.
+
 ## Profile name updates (Version 1.5)
 
 No schema or migration change is required. Existing user columns and all four

@@ -38,6 +38,7 @@ export function Profile() {
       />
       <nav className="authentication-actions" aria-label="Account options">
         <Link href="/vehicles">Your vehicles</Link>
+        <Link href="/business/organizations">Your organizations</Link>
         <Link href="/login">Manage sign-in</Link>
         <button
           className="secondary-button"

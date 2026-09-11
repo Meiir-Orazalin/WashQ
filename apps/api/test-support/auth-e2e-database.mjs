@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { randomUUID } from 'node:crypto';
 
 const { Client } = pg;
 const testEmailSuffix = '@auth-e2e.invalid';
@@ -26,12 +27,60 @@ try {
     const emails = requireTestEmails(argumentsAfterAction);
     const counts = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
     writeResult({ vehicles: counts.vehicles });
+  } else if (action === 'inspect-organizations') {
+    const emails = requireTestEmails(argumentsAfterAction);
+    const counts = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
+    const result = await client.query(
+      `SELECT
+      COUNT(DISTINCT om.organization_id)::integer AS organizations,
+      COUNT(om.id)::integer AS memberships,
+      COUNT(om.id) FILTER (WHERE om.role = 'OWNER')::integer AS owners
+      FROM organization_memberships om WHERE om.user_id = ANY($1::uuid[])`,
+      [counts.ownerIds],
+    );
+    writeResult(result.rows[0]);
+  } else if (action === 'verify-organization-rollback') {
+    requireTestEmails(argumentsAfterAction);
+    // Exercise the built production repository, not a replacement transaction implementation.
+    await import('reflect-metadata');
+    const { ConfigService } = await import('@nestjs/config');
+    const { PrismaService } = await import('../dist/database/prisma.service.js');
+    const { PrismaOrganizationRepository } =
+      await import('../dist/organizations/infrastructure/prisma-organization.repository.js');
+    const prisma = new PrismaService(
+      new ConfigService({ database: { url: getSafeDatabaseUrl() } }),
+    );
+    const name = `Rollback fixture ${randomUUID()}`;
+    try {
+      await prisma.onModuleInit();
+      const before = await prisma.organizationMembership.count();
+      const failed = await new PrismaOrganizationRepository(prisma)
+        .createWithOwnerMembership(randomUUID(), { name, description: null })
+        .then(
+          () => false,
+          () => true,
+        );
+      writeResult({
+        failed,
+        remainingOrganizations: await prisma.organization.count({ where: { name } }),
+        membershipsUnchanged: before === (await prisma.organizationMembership.count()),
+      });
+    } finally {
+      // Preserve the failing assertion while still removing this exact fixture if rollback regresses.
+      await prisma.organization.deleteMany({ where: { name } });
+      await prisma.onModuleDestroy();
+    }
   } else if (action === 'cleanup-prefix') {
     const runId = requireRunId();
     const prefix = `${testEmailPrefix}${runId}-`;
     const cleanup = await cleanupPrefix(prefix);
     writeResult(cleanup);
-    if (cleanup.deletedUsers > 0 || cleanup.deletedSessions > 0) {
+    if (
+      cleanup.deletedUsers > 0 ||
+      cleanup.deletedSessions > 0 ||
+      cleanup.deletedOrganizations > 0 ||
+      cleanup.deletedMemberships > 0
+    ) {
       process.exitCode = 2;
     }
   } else {
@@ -98,12 +147,13 @@ async function cleanupExactEmails(emails) {
   await client.query('BEGIN');
   try {
     const before = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
+    const organizations = await deleteFixtureOrganizations(before.ownerIds);
     const deleted = await client.query(
       'DELETE FROM users WHERE email = ANY($1::text[]) RETURNING email',
       [emails],
     );
     const after = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
-    const remainingChildren = await countChildren(before.ownerIds);
+    const remainingChildren = await countChildren(before.ownerIds, organizations.ids);
     await client.query('COMMIT');
     return {
       deletedSessions: before.sessions,
@@ -112,6 +162,10 @@ async function cleanupExactEmails(emails) {
       remainingVehicles: remainingChildren.vehicles,
       remainingSessions: remainingChildren.sessions,
       remainingUsers: after.users,
+      deletedOrganizations: organizations.count,
+      deletedMemberships: organizations.memberships,
+      remainingOrganizations: remainingChildren.organizations,
+      remainingMemberships: remainingChildren.memberships,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -123,11 +177,12 @@ async function cleanupPrefix(prefix) {
   await client.query('BEGIN');
   try {
     const before = await countRows('WHERE u.email LIKE $1', [`${prefix}%${testEmailSuffix}`]);
+    const organizations = await deleteFixtureOrganizations(before.ownerIds);
     const deleted = await client.query('DELETE FROM users WHERE email LIKE $1 RETURNING email', [
       `${prefix}%${testEmailSuffix}`,
     ]);
     const after = await countRows('WHERE u.email LIKE $1', [`${prefix}%${testEmailSuffix}`]);
-    const remainingChildren = await countChildren(before.ownerIds);
+    const remainingChildren = await countChildren(before.ownerIds, organizations.ids);
     await client.query('COMMIT');
     return {
       deletedSessions: before.sessions,
@@ -136,6 +191,10 @@ async function cleanupPrefix(prefix) {
       remainingVehicles: remainingChildren.vehicles,
       remainingSessions: remainingChildren.sessions,
       remainingUsers: after.users,
+      deletedOrganizations: organizations.count,
+      deletedMemberships: organizations.memberships,
+      remainingOrganizations: remainingChildren.organizations,
+      remainingMemberships: remainingChildren.memberships,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -167,12 +226,34 @@ async function countRows(whereClause, parameters) {
   };
 }
 
-async function countChildren(ownerIds) {
+// Refuse to delete any organization shared with a non-fixture user.
+async function deleteFixtureOrganizations(ownerIds) {
+  const result = await client.query(
+    'SELECT DISTINCT organization_id FROM organization_memberships WHERE user_id = ANY($1::uuid[])',
+    [ownerIds],
+  );
+  const ids = result.rows.map((row) => row.organization_id);
+  const foreign = await client.query(
+    'SELECT 1 FROM organization_memberships WHERE organization_id = ANY($1::uuid[]) AND NOT (user_id = ANY($2::uuid[])) LIMIT 1',
+    [ids, ownerIds],
+  );
+  if (foreign.rowCount !== 0) throw new Error('Preserve organization with unrelated membership');
+  const memberships = await client.query(
+    'SELECT COUNT(*)::integer AS count FROM organization_memberships WHERE organization_id = ANY($1::uuid[])',
+    [ids],
+  );
+  const deleted = await client.query('DELETE FROM organizations WHERE id = ANY($1::uuid[])', [ids]);
+  return { ids, count: deleted.rowCount ?? 0, memberships: memberships.rows[0].count };
+}
+
+async function countChildren(ownerIds, organizationIds) {
   const result = await client.query(
     `SELECT
     (SELECT COUNT(*)::integer FROM vehicles WHERE owner_user_id = ANY($1::uuid[])) AS vehicles,
-    (SELECT COUNT(*)::integer FROM refresh_sessions WHERE user_id = ANY($1::uuid[])) AS sessions`,
-    [ownerIds],
+    (SELECT COUNT(*)::integer FROM refresh_sessions WHERE user_id = ANY($1::uuid[])) AS sessions,
+    (SELECT COUNT(*)::integer FROM organizations WHERE id = ANY($2::uuid[])) AS organizations,
+    (SELECT COUNT(*)::integer FROM organization_memberships WHERE user_id = ANY($1::uuid[]) OR organization_id = ANY($2::uuid[])) AS memberships`,
+    [ownerIds, organizationIds],
   );
   return result.rows[0];
 }

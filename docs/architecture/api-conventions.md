@@ -1,5 +1,38 @@
 # API conventions
 
+## Organizations (Version 2.1)
+
+All three routes use the existing endpoint-scoped Bearer/current-user check, omit
+cookie transport and reject unknown query parameters. Identity is never supplied
+by the client. OpenAPI documents strict schemas, generic authentication and errors.
+
+| Method and route                            | Successful response                                     |
+| ------------------------------------------- | ------------------------------------------------------- |
+| `POST /api/v1/organizations`                | 201 `{ organization }`; atomic initial OWNER membership |
+| `GET /api/v1/organizations`                 | 200 `{ organizations: [...] }`; owned only              |
+| `GET /api/v1/organizations/:organizationId` | 200 `{ organization }`; owned UUID only                 |
+
+Creation accepts only required `name` and optional nullable `description`. Name
+uses NFKC, trim and whitespace collapse, preserves casing, has normalized length
+2–120 and rejects Unicode control characters (including tabs/newlines). Description
+is trimmed to at most 500 characters; omitted/null/blank becomes null. Internal
+punctuation and CR/LF line breaks remain; other controls are rejected. Text lengths
+use the existing Zod string-length convention. Names have no uniqueness rule.
+
+The strict public organization contains only UUID id, name, nullable description,
+createdAt and updatedAt (ISO timestamps). Lists order by createdAt DESC, id DESC;
+there is no pagination. Membership/owner IDs and role data are not response fields.
+Invalid input/UUID/query is 400 VALIDATION_ERROR; authentication failures use the
+existing generic 401 AUTHENTICATION_REQUIRED. Missing and foreign detail both
+return 404 ORGANIZATION_NOT_FOUND, `The organization was not found`. Only ordinary
+path/request ID/timestamp error metadata differs. Unexpected failures remain
+sanitized 500 INTERNAL_SERVER_ERROR. No duplicate-name conflict is exposed.
+
+The centralized error filter records and returns pathname only, excluding query
+values. This prevents rejected ownership or credential query values from entering
+error metadata or unexpected-failure logs; status and stable error contracts remain
+unchanged for existing endpoints.
+
 ## Current-customer profile (Version 1.5)
 
 `PATCH /api/v1/users/me` reuses endpoint-scoped Bearer authentication and accepts
