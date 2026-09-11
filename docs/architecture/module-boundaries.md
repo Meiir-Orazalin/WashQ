@@ -1,5 +1,17 @@
 # Module boundaries
 
+## Organizations (Version 2.1)
+
+`OrganizationsModule` owns organizations and organization memberships, imports the
+existing endpoint-scoped auth boundary, and never accesses user/auth persistence.
+Three focused create/list/detail use cases depend only on `OrganizationRepository`.
+Atomic initial OWNER creation belongs to its Prisma adapter; list/detail filter
+OWNER membership server-side and return only application organization fields.
+Presentation maps strict public contracts and generic errors. The feature-local
+web cache boundary removes both list and detail data on identity transitions;
+authentication owns no organization state. See [organizations](organizations.md)
+and [ADR 0013](../decisions/0013-organization-membership-ownership-and-deletion-integrity.md).
+
 ## Current-customer profile (Version 1.5)
 
 `UsersHttpModule` composes the existing `AuthModule` public scoped guard with

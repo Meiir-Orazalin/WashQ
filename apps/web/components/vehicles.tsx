@@ -41,6 +41,7 @@ export function Vehicles() {
       <div className="authentication-actions">
         <Link href="/login">Manage sign-in</Link>
         <Link href="/profile">Your profile</Link>
+        <Link href="/business/organizations">Your organizations</Link>
         <button
           className="secondary-button"
           type="button"

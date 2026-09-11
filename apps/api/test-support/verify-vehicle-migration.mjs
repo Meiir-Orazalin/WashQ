@@ -44,13 +44,53 @@ try {
   const migrations = await target.query(
     'SELECT count(*)::integer AS count FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL',
   );
-  if (migrations.rows[0]?.count !== 4) throw new Error('Unexpected migration count');
+  if (migrations.rows[0]?.count !== 5) throw new Error('Unexpected migration count');
   const table = await target.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name = 'vehicles' AND table_schema = 'public'",
   );
   if (table.rows[0]?.count !== 9) throw new Error('Unexpected vehicle schema');
+  const organizationColumns = await target.query(
+    "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('organizations', 'organization_memberships')",
+  );
+  for (const name of ['organizations', 'organization_memberships']) {
+    if (organizationColumns.rows.filter((row) => row.table_name === name).length !== 5)
+      throw new Error('Unexpected organization schema');
+  }
+  if (
+    !organizationColumns.rows
+      .filter((row) => row.column_name.endsWith('_at'))
+      .every((row) => row.data_type === 'timestamp with time zone')
+  )
+    throw new Error('Unexpected timestamp type');
+  const indexes = await target.query(
+    "SELECT indexdef FROM pg_indexes WHERE tablename = 'organization_memberships'",
+  );
+  if (
+    !indexes.rows.some((row) => row.indexdef.includes('(user_id, role)')) ||
+    !indexes.rows.some(
+      (row) =>
+        row.indexdef.includes('UNIQUE') && row.indexdef.includes('(organization_id, user_id)'),
+    )
+  )
+    throw new Error('Missing membership index');
+  const fks = await target.query(
+    "SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = 'organization_memberships'::regclass AND contype = 'f'",
+  );
+  if (
+    !fks.rows.some(
+      (row) =>
+        row.definition.includes('REFERENCES users(id)') &&
+        row.definition.includes('ON DELETE RESTRICT'),
+    ) ||
+    !fks.rows.some(
+      (row) =>
+        row.definition.includes('REFERENCES organizations(id)') &&
+        row.definition.includes('ON DELETE CASCADE'),
+    )
+  )
+    throw new Error('Unexpected membership foreign keys');
   process.stdout.write(
-    'Clean database: all 4 migrations applied; vehicle schema present; Prisma drift check passed.\n',
+    'Clean database: all 5 migrations applied; vehicle and organization schemas, membership indexes/FKs/timestamps verified; Prisma drift check passed.\n',
   );
 } catch {
   process.stderr.write(

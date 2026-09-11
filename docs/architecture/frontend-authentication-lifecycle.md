@@ -1,5 +1,21 @@
 # Frontend authentication lifecycle
 
+## Organization protected-data caches (Version 2.1)
+
+The organization feature reuses the unchanged memory-only `runWithAccessToken`
+capability and channel identity lifecycle. It adds no auth event or provider state.
+Only the authenticated, user-keyed subtree renders forms, list or owner detail.
+Initializing, synchronizing, authenticating, logout and error states hide it.
+
+List keys are `['organizations', userId]`; detail keys are
+`['organization', userId, organizationId]`. Queries use abort signals, no retries
+and no previous-user placeholder data. Creation invalidates only the captured
+user's list after the provider's generation check. Feature-local boundary cleanup
+cancels/removes both key families for the departing user, including visited detail
+entries, and aborts creation. Stale responses and old 401/404/500 cannot change the
+new identity, its cache or feedback. No organization-specific behavior enters
+AuthenticationProvider, and tokens enter neither query nor mutation state.
+
 Version 1.3.1 keeps authentication state in one root React provider per
 document. The provider owns the access token, server-provided expiration,
 authoritative public user, status, refresh scheduling, operation generation,

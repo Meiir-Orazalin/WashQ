@@ -81,14 +81,29 @@ affect account B. Concurrent writes remain last-write-wins.
 
 All required local unit, integration, general/browser-profile, authentication,
 vehicle, migration and build gates pass. No dependency or migration is added.
-The Version 1.5 PR must still be reviewed, pass hosted checks and merge before
-Customer Version 1 is released or tagged. Email/password changes, organizations
-and bookings remain outside this milestone.
+The merged Customer Version 1 baseline is `ad11306`, containing Version 1.5
+`d84ec52`, tagged `v0.5.0`. Email/password changes, organizations and bookings
+remain outside that customer milestone.
 
 ## Version 2 — Business onboarding
 
 Organizations, ownership, branches, opening hours, wash boxes, employees,
 services, and prices.
+
+- [x] Version 2.1 — Organization creation and owner-only listing/detail.
+- [ ] Version 2.2 — Organization-owned branches and opening hours.
+
+Version 2.1 adds only minimal organizations and organization-scoped OWNER
+membership. Creation is transactional; lists/details require verified membership,
+foreign/missing detail is indistinguishable and protected frontend caches are
+identity-scoped. No global customer/owner role, organization management, branch,
+employee, verification or public marketplace feature is implied. Business Onboarding
+as a whole remains incomplete, and no business release tag is created for this slice.
+
+All required local gates and the independent built-app review pass; see
+[Version 2.1 verification](../development/version-2.1-verification.md). Human review
+and GitHub-hosted checks remain prerequisites to merge, not claims made by local
+verification. Version 2.2 remains planned, not implemented.
 
 ## Version 3 — Marketplace
 

@@ -96,6 +96,9 @@ jobs:
       - name: Run protected profile browser scenarios
         run: pnpm test:e2e:profile --project=chromium-auth
 
+      - name: Run owner organization browser scenarios
+        run: pnpm test:e2e:organizations --project=chromium-auth
+
       - name: Sanitize authentication trace artifacts
         id: sanitize
         if: always()
@@ -200,6 +203,9 @@ jobs:
 
       - name: Run protected profile browser scenarios
         run: pnpm test:e2e:profile --project=${{ matrix.project }}
+
+      - name: Run owner organization browser scenarios
+        run: pnpm test:e2e:organizations --project=${{ matrix.project }}
 
       - name: Sanitize authentication trace artifacts
         id: sanitize

@@ -1,5 +1,27 @@
 # Security baseline
 
+## Owner-only organizations (Version 2.1)
+
+- Existing scoped Bearer authentication supplies the minimum verified principal;
+  requests cannot choose an owner or membership role. No global role/guard exists.
+- OWNER is scoped to an organization membership. Creation atomically persists
+  the organization and initial membership. User deletion is restricted while a
+  membership remains; organizations are never silently orphaned by user cascade.
+- List/detail queries filter membership in PostgreSQL. Foreign and missing detail
+  have identical generic 404 errors. Public projections contain no membership or
+  user ID; unexpected failures expose no database or credential details.
+- The shared error filter excludes query strings from response/log paths, including
+  when current-user lookup fails before unknown query parameters are validated.
+- Name/control validation is shared. Descriptions are ordinary React text, not
+  unsanitized HTML. Organization endpoints neither read nor mutate refresh cookies.
+- Feature-local user-keyed boundaries hide old data on auth transitions and remove
+  both list/detail caches. Abort signals and existing identity generations prevent
+  stale successes or 401/404/500 from affecting a newer account. No token appears
+  in keys, cached response/mutation data, markup, browser storage or channel events.
+- Cleanup is exact-fixture scoped and deletes organizations before users, refusing
+  any organization also containing unrelated members. No customer integrity rule
+  is weakened for test convenience.
+
 ## Current-customer profile (Version 1.5)
 
 - Only names are mutable, through `PATCH /users/me` with the existing scoped
