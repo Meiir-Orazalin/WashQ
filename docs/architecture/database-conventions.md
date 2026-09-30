@@ -1,5 +1,29 @@
 # Database conventions
 
+## Branches (Version 2.2)
+
+One forward migration `20260930113127_add_branches_and_weekly_opening_hours`
+adds branches and branch_opening_hours. Branches have UUID id/organization FK
+(CASCADE), name/city varchar(100), address_line varchar(250), time_zone varchar(100)
+and timestamptz(3) created_at/updated_at. Listing index is organization_id,
+created_at DESC, id DESC; names are not unique.
+
+Opening rows have UUID id/branch FK (CASCADE), branch_weekday and
+branch_opening_status enums, nullable integer local opens_at_minute/closes_at_minute,
+closes_next_day and timestamptz(3) timestamps. Unique branch/day index also supports
+schedule retrieval. Raw SQL `opening_minutes_range` and `opening_status_interval`
+checks enforce minutes 0–1439, status-dependent null/flag rules and OPEN duration
+1–1439. Weekly values are not UTC timestamps. Existing migrations are immutable.
+
+All production replacements lock the organization-and-ID-scoped branch FOR UPDATE
+before writing children in one transaction. Failed replacement preserves the old
+full week; concurrent full writers serialize without mixed schedules. Full-week
+completeness is application/repository enforced, not a deferred trigger. User
+membership RESTRICT and existing vehicle/session cascades remain unchanged.
+Exact fixture organization deletion cascades memberships, branches and hours.
+Full-history migration/drift verification now checks all six migrations and branch
+columns, timestamps, indexes, cascades and checks as well as existing assertions.
+
 ## Organizations and OWNER membership (Version 2.1)
 
 Forward migration `20260911062954_add_organizations_and_owner_memberships` adds

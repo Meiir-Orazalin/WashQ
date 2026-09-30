@@ -213,7 +213,10 @@ describe('organization protected UI and identity cache boundary', () => {
     });
     const view = setup(<OrganizationDetail organizationId={organizationA.id} />);
     await screen.findByRole('heading', { name: 'Alpha Wash' });
-    expect(screen.getByText('Branches will be added in the next version.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'View branches' })).toHaveAttribute(
+      'href',
+      `/business/organizations/${organizationA.id}/branches`,
+    );
     expect(screen.getByRole('link', { name: 'Back to your organizations' })).toHaveAttribute(
       'href',
       '/business/organizations',

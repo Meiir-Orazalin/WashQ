@@ -1,5 +1,38 @@
 # API conventions
 
+## Branches and weekly schedules (Version 2.2)
+
+Endpoint-scoped Bearer/current-user authentication and organizations' public OWNER
+access protect all four routes. Unknown body/query fields are rejected; ownership
+is never transport input. Paths validate UUIDs before persistence.
+
+| Method and suffix under `/api/v1/organizations/:organizationId/branches` | Success                                             |
+| ------------------------------------------------------------------------ | --------------------------------------------------- |
+| POST                                                                     | 201 `{ branch }`                                    |
+| GET                                                                      | 200 `{ branches }`, createdAt DESC/id DESC          |
+| GET `/:branchId`                                                         | 200 `{ branch: { ...publicFields, openingHours } }` |
+| PUT `/:branchId/opening-hours`                                           | 200 `{ openingHours }`, complete replacement        |
+
+Creation accepts only name (2–100), city (2–100), addressLine (5–250) and timeZone
+(1–100). Text uses NFKC/trim/whitespace collapse, casing retained, controls rejected.
+Timezone is a supported IANA identifier (Intl), not a numeric offset. Names are
+nonunique. Public branches expose only id, name, city, addressLine, timeZone and
+ISO createdAt/updatedAt, never organization/user/membership IDs.
+
+The strict schedule contains exactly seven distinct MONDAY–SUNDAY entries. Each
+has dayOfWeek, status, opensAt, closesAt and closesNextDay. OPEN requires HH:mm
+local values and duration close + (next day ? 1440 : 0) - open of 1–1439 minutes.
+CLOSED/OPEN_24_HOURS require null times and false next-day. Request order is
+arbitrary; responses are canonical. Unconfigured detail has `openingHours: []`.
+No UTC conversion, open-now or availability calculation. See ADR 0014.
+
+400 VALIDATION_ERROR, generic 401 AUTHENTICATION_REQUIRED, generic 404
+ORGANIZATION_NOT_FOUND for missing/non-owned organization; detail/PUT also use
+BRANCH_NOT_FOUND (`The branch was not found`) for missing/wrong-organization branch
+under an owned organization. No 403 or existence distinction. Unexpected errors
+are sanitized 500. OpenAPI documents strict schemas and these semantics. No cookie
+transport or mutation, automatic retry, token example or ownership response fields.
+
 ## Organizations (Version 2.1)
 
 All three routes use the existing endpoint-scoped Bearer/current-user check, omit

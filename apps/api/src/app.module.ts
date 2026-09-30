@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BranchesModule } from './branches/branches.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -16,6 +17,7 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
     VehiclesModule,
     UsersHttpModule,
     OrganizationsModule,
+    BranchesModule,
   ],
 })
 export class AppModule {}

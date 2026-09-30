@@ -44,7 +44,7 @@ try {
   const migrations = await target.query(
     'SELECT count(*)::integer AS count FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL',
   );
-  if (migrations.rows[0]?.count !== 5) throw new Error('Unexpected migration count');
+  if (migrations.rows[0]?.count !== 6) throw new Error('Unexpected migration count');
   const table = await target.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name = 'vehicles' AND table_schema = 'public'",
   );
@@ -89,8 +89,52 @@ try {
     )
   )
     throw new Error('Unexpected membership foreign keys');
+  const branchColumns = await target.query(
+    "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('branches','branch_opening_hours')",
+  );
+  if (
+    branchColumns.rows.filter((row) => row.table_name === 'branches').length !== 8 ||
+    branchColumns.rows.filter((row) => row.table_name === 'branch_opening_hours').length !== 9
+  )
+    throw new Error('Unexpected branch schema');
+  if (
+    !branchColumns.rows
+      .filter((row) => ['created_at', 'updated_at'].includes(row.column_name))
+      .every((row) => row.data_type === 'timestamp with time zone')
+  )
+    throw new Error('Unexpected branch timestamp type');
+  if (
+    !branchColumns.rows
+      .filter((row) => ['opens_at_minute', 'closes_at_minute'].includes(row.column_name))
+      .every((row) => row.data_type === 'integer')
+  )
+    throw new Error('Weekly times must be minutes');
+  const branchIndexes = await target.query(
+    "SELECT indexdef FROM pg_indexes WHERE tablename IN ('branches','branch_opening_hours')",
+  );
+  if (
+    !branchIndexes.rows.some((row) =>
+      row.indexdef.includes('(organization_id, created_at DESC, id DESC)'),
+    ) ||
+    !branchIndexes.rows.some(
+      (row) => row.indexdef.includes('UNIQUE') && row.indexdef.includes('(branch_id, day_of_week)'),
+    )
+  )
+    throw new Error('Missing branch index');
+  const branchConstraints = await target.query(
+    "SELECT contype, conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid IN ('branches'::regclass,'branch_opening_hours'::regclass)",
+  );
+  if (
+    branchConstraints.rows.filter(
+      (row) => row.contype === 'f' && row.definition.includes('ON DELETE CASCADE'),
+    ).length !== 2 ||
+    !['opening_minutes_range', 'opening_status_interval'].every((name) =>
+      branchConstraints.rows.some((row) => row.conname === name && row.contype === 'c'),
+    )
+  )
+    throw new Error('Missing branch integrity constraint');
   process.stdout.write(
-    'Clean database: all 5 migrations applied; vehicle and organization schemas, membership indexes/FKs/timestamps verified; Prisma drift check passed.\n',
+    'Clean database: all 6 migrations applied; vehicle, organization and branch schemas, indexes/FKs/checks/timestamps verified; Prisma drift check passed.\n',
   );
 } catch {
   process.stderr.write(

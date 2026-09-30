@@ -46,7 +46,7 @@ function OwnedOrganizationDetail({
               {query.data.organization.createdAt.slice(0, 10)} (UTC)
             </time>
           </p>
-          <p>Branches will be added in the next version.</p>
+          <Link href={`/business/organizations/${organizationId}/branches`}>View branches</Link>
         </section>
       )}
       <Link href="/business/organizations">Back to your organizations</Link>

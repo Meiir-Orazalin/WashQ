@@ -91,7 +91,8 @@ Organizations, ownership, branches, opening hours, wash boxes, employees,
 services, and prices.
 
 - [x] Version 2.1 — Organization creation and owner-only listing/detail.
-- [ ] Version 2.2 — Organization-owned branches and opening hours.
+- [x] Version 2.2 — Organization-owned branches and opening hours.
+- [ ] Version 2.3 — Organization-owned wash boxes.
 
 Version 2.1 adds only minimal organizations and organization-scoped OWNER
 membership. Creation is transactional; lists/details require verified membership,
@@ -103,7 +104,21 @@ as a whole remains incomplete, and no business release tag is created for this s
 All required local gates and the independent built-app review pass; see
 [Version 2.1 verification](../development/version-2.1-verification.md). Human review
 and GitHub-hosted checks remain prerequisites to merge, not claims made by local
-verification. Version 2.2 remains planned, not implemented.
+verification. The Version 2.2 branch starts at the merged Version 2.1 baseline
+`f79302e`, containing `26d8a5d`.
+
+Version 2.2 adds only owner-authorized branch creation/list/detail and complete
+weekly opening-hours replacement. Branch use cases consume the organizations
+public owner-access boundary; no membership persistence crosses modules. IANA
+zones and local wall-clock minutes follow ADR 0014. Scoped PostgreSQL row locks
+serialize full-week replacements and rollback preserves the old schedule.
+Chrome/WebKit verify persistence, private resource scope, local time display,
+concurrency and delayed old list/detail/schedule results across account switches.
+All required local unit, integration, migration, browser-regression and build
+gates pass; see [Version 2.2 verification](../development/version-2.2-verification.md).
+Human review and hosted checks remain prerequisites to merge. Business Onboarding
+remains incomplete; no release tag is created. Next: Version 2.3 wash boxes,
+not employees, services, prices, bookings or queues.
 
 ## Version 3 — Marketplace
 

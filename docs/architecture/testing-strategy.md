@@ -1,5 +1,31 @@
 # Testing strategy
 
+## Version 2.2 branch verification
+
+Shared contracts cover strict text/ownership boundaries, NFKC/limits/controls,
+Intl IANA zones, exact local HH:mm, all statuses/weekdays, duration/overnight
+rules, completeness/duplicates and canonical responses. Application/public-boundary
+tests enforce owner access before branch persistence and absence of cross-module
+persistence imports. Production-module HTTP tests verify all routes, scoped
+Bearer, generic 401/404, invalid input, OpenAPI, safe failures/logs and public health.
+
+PostgreSQL tests verify scoped detail/listing, ordering/nonunique names, all local
+statuses, per-row checks, rollback preservation, full concurrent replacements,
+cascades and unchanged customer records/user restriction. The disposable migration
+gate checks full six-migration history, branch schema/index/FK/check/timestamp and
+drift without resetting development data.
+
+Frontend tests verify accessible forms, time-zone errors, seven-day editor and
+status controls, pending latch/reset/refetch, safe states, stale detail/schedule
+success/401/404/500, cache removal and logout. Built Chrome/Chromium and WebKit
+`pnpm test:e2e:branches` covers persistence, normal/closed/24-hour/overnight weeks,
+different browser zones, private organization/branch scope, built-repository
+failure rollback, concurrent HTTP replacement and delayed old list/detail/PUT
+across two-tab account switches. Privacy checks use boolean comparisons only.
+Cleanup confirms zero hours/branches/memberships/organizations/users/vehicles/
+sessions in integrity-safe order. Auth/profile/vehicle/organization regressions
+remain required, and shared-database gates run sequentially. Firefox unqualified.
+
 ## Version 2.1 organization verification
 
 Contracts cover NFKC/casing/whitespace, Unicode control rejection, nullable trimmed

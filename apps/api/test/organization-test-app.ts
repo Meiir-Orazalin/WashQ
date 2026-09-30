@@ -16,6 +16,11 @@ import {
   type OrganizationRepository,
 } from '../src/organizations/application/organization.repository.js';
 import { OrganizationsModule } from '../src/organizations/organizations.module.js';
+import { BranchesModule } from '../src/branches/branches.module.js';
+import {
+  BRANCH_REPOSITORY,
+  type BranchRepository,
+} from '../src/branches/application/branch.repository.js';
 
 @Global()
 @Module({
@@ -40,9 +45,15 @@ export async function createOrganizationTestApp(
   users: UserRepository,
   tokens: AccessTokenService,
   organizations: OrganizationRepository,
+  branches?: BranchRepository,
 ) {
   const module = await Test.createTestingModule({
-    imports: [OrganizationTestConfigurationModule, OrganizationsModule, HealthModule],
+    imports: [
+      OrganizationTestConfigurationModule,
+      OrganizationsModule,
+      HealthModule,
+      ...(branches ? [BranchesModule] : []),
+    ],
   })
     .overrideProvider(PrismaService)
     .useValue({ isReady: async () => true })
@@ -52,6 +63,8 @@ export async function createOrganizationTestApp(
     .useValue(tokens)
     .overrideProvider(ORGANIZATION_REPOSITORY)
     .useValue(organizations)
+    .overrideProvider(BRANCH_REPOSITORY)
+    .useValue(branches)
     .compile();
   const app = module.createNestApplication();
   app.setGlobalPrefix('api/v1');

@@ -11,6 +11,10 @@ export default async function globalTeardown() {
 
   const cleanup = await cleanupRunNamespace();
   if (
+    cleanup.deletedBranches > 0 ||
+    cleanup.deletedOpeningHours > 0 ||
+    cleanup.remainingBranches > 0 ||
+    cleanup.remainingOpeningHours > 0 ||
     cleanup.deletedOrganizations > 0 ||
     cleanup.deletedMemberships > 0 ||
     cleanup.remainingOrganizations > 0 ||

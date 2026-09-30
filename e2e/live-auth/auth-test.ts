@@ -27,6 +27,10 @@ export interface LiveAuthUser {
 }
 
 interface DatabaseCleanup {
+  deletedBranches: number;
+  deletedOpeningHours: number;
+  remainingBranches: number;
+  remainingOpeningHours: number;
   deletedOrganizations: number;
   deletedMemberships: number;
   remainingOrganizations: number;
@@ -152,6 +156,13 @@ export async function verifyOrganizationRollback(
   email: string,
 ): Promise<{ failed: boolean; remainingOrganizations: number; membershipsUnchanged: boolean }> {
   return runDatabaseCommand('verify-organization-rollback', [email]);
+}
+export async function verifyScheduleRollback(
+  email: string,
+  organizationId: string,
+  branchId: string,
+): Promise<{ failed: boolean; previousSchedulePreserved: boolean; days: number }> {
+  return runDatabaseCommand('verify-schedule-rollback', [email, organizationId, branchId]);
 }
 
 export async function login(page: Page, user: LiveAuthUser) {
@@ -404,6 +415,8 @@ async function runDatabaseCommand<Result>(action: string, argumentsAfterAction: 
 }
 
 function assertCleanupComplete(cleanup: DatabaseCleanup) {
+  expect(cleanup.remainingBranches).toBe(0);
+  expect(cleanup.remainingOpeningHours).toBe(0);
   expect(cleanup.remainingOrganizations).toBe(0);
   expect(cleanup.remainingMemberships).toBe(0);
   expect(cleanup.remainingVehicles).toBe(0);

@@ -1,5 +1,14 @@
 # Module boundaries
 
+## Branches (Version 2.2)
+
+Branches owns branches and weekly opening hours. Its four focused use cases depend
+on BranchRepository and only organizations' public OrganizationOwnerAccess port.
+OWNER membership lookup remains inside organizations; its infrastructure is never
+imported by branch code. Nest composition exports the narrow access provider.
+Branch persistence is organization-scoped; atomic schedule replacement locks the
+scoped branch row in infrastructure. See [branches](branches.md) and ADR 0014.
+
 ## Organizations (Version 2.1)
 
 `OrganizationsModule` owns organizations and organization memberships, imports the

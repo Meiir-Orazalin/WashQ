@@ -36,6 +36,7 @@ model Organization {
   createdAt   DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships OrganizationMembership[]
+  branches    Branch[]
 
   @@map("organizations")
 }
@@ -52,6 +53,58 @@ model OrganizationMembership {
   @@unique([organizationId, userId])
   @@index([userId, role])
   @@map("organization_memberships")
+}
+
+enum BranchWeekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+
+  @@map("branch_weekday")
+}
+
+enum BranchOpeningStatus {
+  CLOSED
+  OPEN
+  OPEN_24_HOURS
+
+  @@map("branch_opening_status")
+}
+
+model Branch {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  name           String               @db.VarChar(100)
+  city           String               @db.VarChar(100)
+  addressLine    String               @map("address_line") @db.VarChar(250)
+  timeZone       String               @map("time_zone") @db.VarChar(100)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  openingHours   BranchOpeningHours[]
+
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("branches")
+}
+
+model BranchOpeningHours {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branchId       String              @map("branch_id") @db.Uuid
+  dayOfWeek      BranchWeekday       @map("day_of_week")
+  status         BranchOpeningStatus
+  opensAtMinute  Int?                @map("opens_at_minute")
+  closesAtMinute Int?                @map("closes_at_minute")
+  closesNextDay  Boolean             @default(false) @map("closes_next_day")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  branch         Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, dayOfWeek])
+  @@map("branch_opening_hours")
 }
 
 model Vehicle {

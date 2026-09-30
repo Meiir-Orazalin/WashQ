@@ -49,7 +49,9 @@ name editing with authoritative, generation-safe current-user updates and
 non-sensitive profile-change notifications. Version 2.1 adds organization creation
 with atomic OWNER membership, owned list/detail and protected business routes.
 Ownership is organization-scoped, never a global user role. Global guards,
-branches and public organization discovery remain absent. See the
+public organization discovery remain absent. Version 2.2 adds owner-authorized
+branches and atomic local weekly schedules through organizations' public
+owner-access boundary. See [branches](branches.md) and the
 [organization architecture](organizations.md).
 
 ## Runtime boundaries

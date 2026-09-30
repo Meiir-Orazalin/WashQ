@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ORGANIZATION_OWNER_ACCESS } from './public.js';
+import { CurrentOrganizationOwnerAccess } from './application/organization-owner-access.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { CreateOrganizationUseCase } from './application/create-organization.use-case.js';
@@ -15,6 +17,12 @@ import { OrganizationsController } from './presentation/organizations.controller
   imports: [AuthModule, DatabaseModule],
   controllers: [OrganizationsController],
   providers: [
+    {
+      provide: ORGANIZATION_OWNER_ACCESS,
+      inject: [ORGANIZATION_REPOSITORY],
+      useFactory: (repository: OrganizationRepository) =>
+        new CurrentOrganizationOwnerAccess(repository),
+    },
     PrismaOrganizationRepository,
     { provide: ORGANIZATION_REPOSITORY, useExisting: PrismaOrganizationRepository },
     {
@@ -35,5 +43,6 @@ import { OrganizationsController } from './presentation/organizations.controller
         new GetOwnedOrganizationUseCase(repository),
     },
   ],
+  exports: [ORGANIZATION_OWNER_ACCESS],
 })
 export class OrganizationsModule {}

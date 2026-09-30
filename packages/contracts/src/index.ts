@@ -25,6 +25,28 @@ export {
 export { refreshResponseSchema, type RefreshResponse } from './refresh.js';
 export { currentUserResponseSchema, type CurrentUserResponse } from './current-user.js';
 export {
+  createBranchRequestSchema,
+  publicBranchSchema,
+  branchIdParamsSchema,
+  weekdays,
+  openingHoursStatuses,
+  openingHoursEntrySchema,
+  replaceOpeningHoursRequestSchema,
+  openingHoursResponseSchema,
+  createBranchResponseSchema,
+  branchListResponseSchema,
+  branchDetailResponseSchema,
+  type CreateBranchRequest,
+  type PublicBranch,
+  type BranchIdParams,
+  type OpeningHoursEntry,
+  type ReplaceOpeningHoursRequest,
+  type CreateBranchResponse,
+  type BranchListResponse,
+  type BranchDetailResponse,
+  type OpeningHoursResponse,
+} from './branch.js';
+export {
   createOrganizationRequestSchema,
   publicOrganizationSchema,
   organizationIdParamsSchema,

@@ -1,5 +1,17 @@
 # Frontend authentication lifecycle
 
+## Protected branches (Version 2.2)
+
+The existing authentication and non-sensitive channel remain unchanged. Branch
+list/detail use user/organization(/branch)-scoped keys and mount only inside the
+verified user-keyed subtree. Every other status immediately hides forms and data.
+Feature-local cleanup cancels/removes both branch key families and aborts creation
+and schedule writes. Forms reset when identity/resources change. Invalid IDs send
+no request; a new account that does not own the URL organization sees only generic
+not-found, never old cached data. Provider generations and mounted/abort checks
+suppress old success/error feedback and invalidation. No automatic retry or
+optimistic update; no branch state inside AuthenticationProvider.
+
 ## Organization protected-data caches (Version 2.1)
 
 The organization feature reuses the unchanged memory-only `runWithAccessToken`
