@@ -70,6 +70,45 @@ try {
       await prisma.organization.deleteMany({ where: { name } });
       await prisma.onModuleDestroy();
     }
+  } else if (action === 'verify-schedule-rollback') {
+    const [email, organizationId, branchId] = argumentsAfterAction;
+    requireTestEmails([email]);
+    const scoped = await client.query(
+      "SELECT b.id FROM branches b JOIN organization_memberships m ON m.organization_id = b.organization_id JOIN users u ON u.id = m.user_id WHERE b.id = $1::uuid AND b.organization_id = $2::uuid AND u.email = $3 AND m.role = 'OWNER'",
+      [branchId, organizationId, email],
+    );
+    if (scoped.rowCount !== 1) throw new Error('Invalid schedule fixture scope');
+    await import('reflect-metadata');
+    const { ConfigService } = await import('@nestjs/config');
+    const { PrismaService } = await import('../dist/database/prisma.service.js');
+    const { PrismaBranchRepository } =
+      await import('../dist/branches/infrastructure/prisma-branch.repository.js');
+    const prisma = new PrismaService(
+      new ConfigService({ database: { url: getSafeDatabaseUrl() } }),
+    );
+    try {
+      await prisma.onModuleInit();
+      const repository = new PrismaBranchRepository(prisma);
+      const before = (await repository.findBranchByOrganizationAndId(organizationId, branchId))
+        .openingHours;
+      if (before.length !== 7) throw new Error('Fixture requires a saved full week');
+      const invalid = before.map((entry, index) =>
+        index === 3 ? { ...entry, status: 'OPEN', opensAtMinute: -1, closesAtMinute: 600 } : entry,
+      );
+      const failed = await repository.replaceOpeningHours(organizationId, branchId, invalid).then(
+        () => false,
+        () => true,
+      );
+      const after = (await repository.findBranchByOrganizationAndId(organizationId, branchId))
+        .openingHours;
+      writeResult({
+        failed,
+        previousSchedulePreserved: JSON.stringify(before) === JSON.stringify(after),
+        days: after.length,
+      });
+    } finally {
+      await prisma.onModuleDestroy();
+    }
   } else if (action === 'cleanup-prefix') {
     const runId = requireRunId();
     const prefix = `${testEmailPrefix}${runId}-`;
@@ -79,7 +118,9 @@ try {
       cleanup.deletedUsers > 0 ||
       cleanup.deletedSessions > 0 ||
       cleanup.deletedOrganizations > 0 ||
-      cleanup.deletedMemberships > 0
+      cleanup.deletedMemberships > 0 ||
+      cleanup.deletedBranches > 0 ||
+      cleanup.deletedOpeningHours > 0
     ) {
       process.exitCode = 2;
     }
@@ -153,7 +194,11 @@ async function cleanupExactEmails(emails) {
       [emails],
     );
     const after = await countRows('WHERE u.email = ANY($1::text[])', [emails]);
-    const remainingChildren = await countChildren(before.ownerIds, organizations.ids);
+    const remainingChildren = await countChildren(
+      before.ownerIds,
+      organizations.ids,
+      organizations.branchIds,
+    );
     await client.query('COMMIT');
     return {
       deletedSessions: before.sessions,
@@ -166,6 +211,10 @@ async function cleanupExactEmails(emails) {
       deletedMemberships: organizations.memberships,
       remainingOrganizations: remainingChildren.organizations,
       remainingMemberships: remainingChildren.memberships,
+      deletedBranches: organizations.branches,
+      deletedOpeningHours: organizations.openingHours,
+      remainingBranches: remainingChildren.branches,
+      remainingOpeningHours: remainingChildren.openingHours,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -182,7 +231,11 @@ async function cleanupPrefix(prefix) {
       `${prefix}%${testEmailSuffix}`,
     ]);
     const after = await countRows('WHERE u.email LIKE $1', [`${prefix}%${testEmailSuffix}`]);
-    const remainingChildren = await countChildren(before.ownerIds, organizations.ids);
+    const remainingChildren = await countChildren(
+      before.ownerIds,
+      organizations.ids,
+      organizations.branchIds,
+    );
     await client.query('COMMIT');
     return {
       deletedSessions: before.sessions,
@@ -195,6 +248,10 @@ async function cleanupPrefix(prefix) {
       deletedMemberships: organizations.memberships,
       remainingOrganizations: remainingChildren.organizations,
       remainingMemberships: remainingChildren.memberships,
+      deletedBranches: organizations.branches,
+      deletedOpeningHours: organizations.openingHours,
+      remainingBranches: remainingChildren.branches,
+      remainingOpeningHours: remainingChildren.openingHours,
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -242,18 +299,36 @@ async function deleteFixtureOrganizations(ownerIds) {
     'SELECT COUNT(*)::integer AS count FROM organization_memberships WHERE organization_id = ANY($1::uuid[])',
     [ids],
   );
+  const branches = await client.query(
+    'SELECT id FROM branches WHERE organization_id = ANY($1::uuid[])',
+    [ids],
+  );
+  const branchIds = branches.rows.map((row) => row.id);
+  const hours = await client.query(
+    'SELECT COUNT(*)::integer AS count FROM branch_opening_hours WHERE branch_id = ANY($1::uuid[])',
+    [branchIds],
+  );
   const deleted = await client.query('DELETE FROM organizations WHERE id = ANY($1::uuid[])', [ids]);
-  return { ids, count: deleted.rowCount ?? 0, memberships: memberships.rows[0].count };
+  return {
+    ids,
+    branchIds,
+    branches: branchIds.length,
+    openingHours: hours.rows[0].count,
+    count: deleted.rowCount ?? 0,
+    memberships: memberships.rows[0].count,
+  };
 }
 
-async function countChildren(ownerIds, organizationIds) {
+async function countChildren(ownerIds, organizationIds, branchIds) {
   const result = await client.query(
     `SELECT
     (SELECT COUNT(*)::integer FROM vehicles WHERE owner_user_id = ANY($1::uuid[])) AS vehicles,
     (SELECT COUNT(*)::integer FROM refresh_sessions WHERE user_id = ANY($1::uuid[])) AS sessions,
     (SELECT COUNT(*)::integer FROM organizations WHERE id = ANY($2::uuid[])) AS organizations,
-    (SELECT COUNT(*)::integer FROM organization_memberships WHERE user_id = ANY($1::uuid[]) OR organization_id = ANY($2::uuid[])) AS memberships`,
-    [ownerIds, organizationIds],
+    (SELECT COUNT(*)::integer FROM organization_memberships WHERE user_id = ANY($1::uuid[]) OR organization_id = ANY($2::uuid[])) AS memberships,
+    (SELECT COUNT(*)::integer FROM branches WHERE organization_id = ANY($2::uuid[])) AS branches,
+    (SELECT COUNT(*)::integer FROM branch_opening_hours WHERE branch_id = ANY($3::uuid[])) AS "openingHours"`,
+    [ownerIds, organizationIds, branchIds],
   );
   return result.rows[0];
 }

@@ -1,5 +1,31 @@
 # Local setup
 
+## Version 2.2 branch verification
+
+Keep the existing ignored environment private. Install frozen dependencies, start
+Compose, generate Prisma, deploy/status dev and test, run drift and
+`pnpm test:vehicle-migration` (all six migrations). Build with the live API URL
+below; `AUTH_E2E_RUN_ID=local-branches AUTH_E2E_USE_SYSTEM_CHROME=true pnpm test:e2e:branches`
+starts built API/web and tests Chrome and WebKit. Run all existing auth, profile,
+vehicle, organization and general regressions sequentially, plus unit/integration,
+format/lint/typecheck/build. Never reset local data or print credentials.
+
+Create an exact temporary user and organization, follow View branches, create
+name/city/address/Asia/Almaty and verify empty/unconfigured state. Save all seven
+days including Closed, Open 24 hours and 22:00–02:00 next-day; reload and verify
+local values. A browser in another zone must not shift them. Compare missing and
+foreign organization 404s; a branch ID under another owned organization returns
+BRANCH_NOT_FOUND. Concurrent full writes must leave one complete week, and a
+database-check failure must preserve the prior week. Verify no partial rows.
+
+In two tabs, delay A's list/detail/schedule response and sign in B elsewhere.
+Synchronization must hide old controls; releasing old results cannot affect B.
+Inspect scoped query caches/storage/markup/logs with boolean privacy checks,
+keyboard labels/errors/status feedback and mobile/desktop overflow. Inspect SQL
+constraints, indexes, cascades and minute values without selecting credentials.
+Delete only fixture organizations before users; independently confirm zero hours,
+branches, memberships, organizations, users, vehicles and sessions.
+
 ## Version 2.1 organization verification
 
 Keep the valid ignored `.env` private. Start the existing container without resetting

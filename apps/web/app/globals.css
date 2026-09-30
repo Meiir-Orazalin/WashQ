@@ -544,3 +544,29 @@ footer {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.weekly-editor {
+  max-width: 55rem;
+  margin-block: 2rem;
+}
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 1rem;
+  min-width: 0;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.weekday-row legend {
+  font-weight: 600;
+}
+.weekday-row select {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+}
+.next-day-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

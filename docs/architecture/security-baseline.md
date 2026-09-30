@@ -1,5 +1,22 @@
 # Security baseline
 
+## Owner-authorized branches (Version 2.2)
+
+Branches consumes only public OrganizationOwnerAccess, not organization persistence
+or membership models. Verified identity comes from the unchanged endpoint guard;
+OWNER remains membership-scoped. Every branch query/write has organization scope,
+and detail/PUT have branch scope too. Foreign/missing organization errors match;
+wrong-organization and missing branch errors match. No ownership/internal minute
+fields appear publicly. No global guard, new role or cookie behavior.
+
+Shared text/IANA/local-week validation and database interval checks protect data;
+addresses render as text. Scoped row locking and transactional replacement preserve
+full weeks on failure/concurrency. Feature-local list/detail cache cleanup, aborts,
+identity generations and keyed forms prevent stale account results or errors from
+affecting a new account. Tokens remain memory-only and outside keys/cache/markup.
+Cleanup deletes only exact fixture organizations before users and verifies branches
+and hours independently. No unrelated development data is reset.
+
 ## Owner-only organizations (Version 2.1)
 
 - Existing scoped Bearer authentication supplies the minimum verified principal;

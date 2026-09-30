@@ -217,7 +217,7 @@ test('@organizations creates, lists and opens persisted owner detail with access
   await page.getByRole('link', { name: 'Astana Premium Wash', exact: true }).click();
   await expect(page).toHaveURL(/\/business\/organizations\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: 'Astana Premium Wash' })).toBeVisible();
-  await expect(page.getByText('Branches will be added in the next version.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View branches' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Astana Premium Wash' })).toBeVisible();
   await expect(page.locator('.organization-description')).toHaveText(

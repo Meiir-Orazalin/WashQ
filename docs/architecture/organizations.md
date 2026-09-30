@@ -40,7 +40,7 @@ UUID is only a resource locator. Missing and foreign detail return the same
 
 `/business/organizations` offers an accessible name/description form and owned list.
 `/business/organizations/[organizationId]` shows owner-only details and a plain
-notice that branches arrive in the next version. Descriptions render as ordinary
+link to the Version 2.2 owner-authorized branches route. Descriptions render as ordinary
 React text, preserving line breaks, never HTML. Authenticated navigation retains
 profile and vehicle links.
 
@@ -61,7 +61,10 @@ new account. Tokens never enter keys, cache, mutation variables/results or marku
 ## Limits
 
 No pagination, name uniqueness, organization edit/delete/transfer, additional owner
-management, public discovery, verification, global roles, employees or branches.
+management, public discovery, verification, global roles or employees.
 A successful creation whose response is lost is not automatically retried; a manual
 second creation can create another same-name organization. General idempotency keys
-are not introduced. Next slice: Version 2.2 branches and opening hours.
+are not introduced. Version 2.2 branches consume only the public
+`OrganizationOwnerAccess.assertCurrentOwner` boundary. It returns no organization,
+membership or user persistence data; missing/non-owner uses the same existing
+OrganizationNotFoundError. The membership query remains here. See [branches](branches.md).
