@@ -87,6 +87,7 @@ model Branch {
   organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   openingHours   BranchOpeningHours[]
   washBoxes      WashBox[]
+  services       BranchService[]
 
   @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("branches")
@@ -106,6 +107,23 @@ model BranchOpeningHours {
 
   @@unique([branchId, dayOfWeek])
   @@map("branch_opening_hours")
+}
+
+model BranchService {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  branchId        String   @map("branch_id") @db.Uuid
+  name            String   @db.VarChar(120)
+  description     String?  @db.VarChar(500)
+  durationMinutes Int      @map("duration_minutes")
+  priceMinor      Int      @map("price_minor")
+  currency        String   @db.VarChar(3)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("branch_services")
 }
 
 model WashBox {

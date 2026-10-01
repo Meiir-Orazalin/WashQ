@@ -1,5 +1,26 @@
 # Database conventions
 
+## Branch services (Version 2.4)
+
+Forward migration 20261001043927_add_branch_services adds only branch_services.
+Ten columns follow existing UUID/mapped snake_case/timestamptz(3) conventions.
+Branch FK is CASCADE; name varchar(120), description nullable varchar(500),
+duration_minutes and price_minor INTEGER, currency varchar(3), is_active default
+true. Checks enforce duration 1–1440, price 1–100000000 and currency KZT. No name
+uniqueness. The sole non-primary index is branch_id/created_at DESC/id DESC.
+
+Only supplied mutable columns are atomically updated with branch and service scope.
+No-op preserves updated_at; actual change advances it. Concurrent independent
+patches preserve omissions; same-field committed ordering is last-write-wins.
+Currency/parent/created_at remain unchanged. Customer, schedule and box records
+are untouched. Cascades include services, with membership user RESTRICT unchanged.
+
+Full-history verification discovers migration names from the repository rather
+than assuming an old count, checks all schemas/indexes/FKs/checks/timestamps and
+drift on a database it creates and removes itself. No applied migration is edited.
+Future orders must snapshot accepted price/currency/duration/label; no price-history
+or order schema is added in this slice.
+
 ## Wash boxes (Version 2.3)
 
 Forward migration `20260930150000_add_branch_wash_boxes` creates six columns only:

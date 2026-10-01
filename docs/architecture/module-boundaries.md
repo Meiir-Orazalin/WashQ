@@ -1,5 +1,13 @@
 # Module boundaries
 
+## Branch services (Version 2.4)
+
+BranchServicesModule owns only its catalogue table and focused create/list/detail/
+partial-update use cases. All consume branches' public BranchOwnerAccess; no
+private parent persistence or membership lookup crosses the boundary. Infrastructure
+performs branch-scoped reads and branch-and-service-scoped atomic supplied-column
+updates. Currency/parent are immutable. See [branch services](branch-services.md).
+
 ## Wash boxes (Version 2.3)
 
 Wash boxes owns only bay persistence. Focused use cases consume branches' public

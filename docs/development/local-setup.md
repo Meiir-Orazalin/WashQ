@@ -1,5 +1,32 @@
 # Local setup
 
+## Branch service catalogue verification (Version 2.4)
+
+Keep the existing ignored environment private. Generate Prisma, deploy/status
+dev and integration migrations, check drift and pnpm test:vehicle-migration.
+Build with NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:4000/api/v1 pnpm build,
+then run AUTH_E2E_RUN_ID=local-services AUTH_E2E_USE_SYSTEM_CHROME=true
+pnpm test:e2e:services. This starts built API/web on test PostgreSQL and exercises
+qualified Chrome/WebKit. Run all regression/live suites sequentially, then sanitize
+artifacts and verify exact-fixture cleanup. Never reset or print credentials.
+
+Sign in, create an organization/branch, follow Manage services and confirm empty.
+Create Exterior wash, 30 minutes, 5000 KZT; API/SQL must store 500000 price_minor.
+Open detail, edit to 5000.50 (or comma input), 45 minutes and a description.
+Reload and verify exact persistence; clear description without changing price.
+Cancel deactivation with no request, then confirm, reload and reactivate.
+Inactive services remain editable. Activity is not availability.
+
+Compare foreign/missing organization, wrong/missing branch and wrong/missing
+service errors separately. Concurrent independent price/duration patches must
+retain both supplied fields. Delay list/detail/PATCH, switch accounts in another
+tab or navigate to another owned branch; old UI/results/errors must not return.
+Inspect keyboard/focus/labels/announcements and mobile overflow. Inspect storage,
+markup, query/mutation caches and logs through boolean privacy checks, never
+printing secrets. Delete only namespaced fixture organizations before users and
+verify zero services, boxes, schedules, branches, memberships, organizations,
+users, vehicles and sessions. No service deletion endpoint exists.
+
 ## Owner-managed wash-box verification (Version 2.3)
 
 After Prisma generation and forward migrations on dev/test, build the API/web

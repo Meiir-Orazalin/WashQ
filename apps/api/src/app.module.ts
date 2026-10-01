@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BranchServicesModule } from './branch-services/branch-services.module.js';
 import { WashBoxesModule } from './wash-boxes/wash-boxes.module.js';
 import { BranchesModule } from './branches/branches.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -20,6 +21,7 @@ import { OrganizationsModule } from './organizations/organizations.module.js';
     OrganizationsModule,
     BranchesModule,
     WashBoxesModule,
+    BranchServicesModule,
   ],
 })
 export class AppModule {}

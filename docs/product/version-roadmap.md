@@ -93,7 +93,7 @@ services, and prices.
 - [x] Version 2.1 — Organization creation and owner-only listing/detail.
 - [x] Version 2.2 — Organization-owned branches and opening hours.
 - [x] Version 2.3 — Owner-authorized branch wash boxes.
-- [ ] Version 2.4 — Owner-authorized branch services and explicit pricing.
+- [x] Version 2.4 — Owner-authorized branch services and explicit pricing.
 
 Version 2.1 adds only minimal organizations and organization-scoped OWNER
 membership. Creation is transactional; lists/details require verified membership,
@@ -136,6 +136,19 @@ only Version 2.3 implemented, not hosted verification or merge. Human review and
 passing hosted checks remain merge prerequisites; no business release tag is
 created. Business Onboarding remains incomplete. Next: Version 2.4 branch services
 and explicit prices, without employees, bookings, availability or queues.
+
+Version 2.4 starts at the Version 2.3 PR #7 merge 9b9d2f6, containing e6da43a.
+Only the branch service catalogue is implemented: create/list/detail, partial
+details/duration/fixed KZT price editing and explicit activity. Public BranchOwnerAccess
+is reused; integer minor-unit prices round-trip exactly and database checks remain
+authoritative. Supplied-column atomic patches preserve concurrent independent fields.
+Identity/resource-scoped caches reject delayed old account/branch results.
+All required local gates pass; see [Version 2.4 verification](../development/version-2.4-verification.md).
+Hosted checks and human review remain merge prerequisites, not local-test claims.
+Business Onboarding remains incomplete; no release tag, payment or booking feature
+is implied. Next focused business slice should be organization-scoped employee
+membership onboarding, with its roles/invitation/branch-access design reviewed
+separately before implementation.
 
 ## Version 3 — Marketplace
 

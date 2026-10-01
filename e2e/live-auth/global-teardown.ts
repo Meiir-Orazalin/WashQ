@@ -13,6 +13,8 @@ export default async function globalTeardown() {
   if (
     cleanup.deletedWashBoxes > 0 ||
     cleanup.remainingWashBoxes > 0 ||
+    cleanup.deletedServices > 0 ||
+    cleanup.remainingServices > 0 ||
     cleanup.deletedBranches > 0 ||
     cleanup.deletedOpeningHours > 0 ||
     cleanup.remainingBranches > 0 ||

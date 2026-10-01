@@ -56,6 +56,12 @@ owner-access boundary. See [branches](branches.md) and the
 
 ## Runtime boundaries
 
+Version 2.4 adds an owner-authorized branch service catalogue with duration,
+fixed integer-minor-unit KZT prices, partial edits and explicit activity.
+It consumes the existing public branch-access boundary, not private persistence.
+No payment, booking, availability or public marketplace behavior is introduced.
+See [branch services](branch-services.md).
+
 Version 2.3 adds owner-managed branch wash boxes through branches' public
 owner-access facade, with per-branch reserved numbers and explicit activity
 configuration. It adds no occupancy, availability, service, booking or queue logic.
