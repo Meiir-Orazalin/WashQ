@@ -1,5 +1,24 @@
 # Security baseline
 
+## Owner-authorized branch services (Version 2.4)
+
+The unchanged verified principal and public BranchOwnerAccess resolve organization
+OWNER and branch scope before service state. Services imports no private parent
+persistence. Every query is branch scoped, mutations also service scoped. Foreign/
+missing resource errors match at each level. Strict bodies reject ownership,
+parents, credentials and immutable currency; public projections exclude them.
+
+Shared text/control and integer price/duration validation is reinforced by SQL
+checks. Descriptions render as text. Only recognized vanished-parent FK maps to
+a controlled outcome; unexpected errors remain sanitized. No new role, guard,
+cookie behavior, auth lifecycle, payment or availability logic.
+
+Identity/resource-keyed UI, cancellation, cache removal and post-response abort
+checks suppress late success and 401/404/500 across accounts and branches.
+Tokens remain callback-only and outside storage/keys/cache/markup/channel payloads.
+Cleanup deletes only namespaced organizations before users and verifies services
+as well as existing children. No unrelated development data is reset.
+
 ## Owner-authorized wash boxes (Version 2.3)
 
 Wash boxes consumes only public BranchOwnerAccess; parent membership persistence

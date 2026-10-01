@@ -117,6 +117,7 @@ try {
     if (
       cleanup.deletedUsers > 0 ||
       cleanup.deletedWashBoxes > 0 ||
+      cleanup.deletedServices > 0 ||
       cleanup.deletedSessions > 0 ||
       cleanup.deletedOrganizations > 0 ||
       cleanup.deletedMemberships > 0 ||
@@ -215,6 +216,8 @@ async function cleanupExactEmails(emails) {
       deletedBranches: organizations.branches,
       deletedOpeningHours: organizations.openingHours,
       deletedWashBoxes: organizations.washBoxes,
+      deletedServices: organizations.services,
+      remainingServices: remainingChildren.services,
       remainingWashBoxes: remainingChildren.washBoxes,
       remainingBranches: remainingChildren.branches,
       remainingOpeningHours: remainingChildren.openingHours,
@@ -254,6 +257,8 @@ async function cleanupPrefix(prefix) {
       deletedBranches: organizations.branches,
       deletedOpeningHours: organizations.openingHours,
       deletedWashBoxes: organizations.washBoxes,
+      deletedServices: organizations.services,
+      remainingServices: remainingChildren.services,
       remainingWashBoxes: remainingChildren.washBoxes,
       remainingBranches: remainingChildren.branches,
       remainingOpeningHours: remainingChildren.openingHours,
@@ -317,6 +322,10 @@ async function deleteFixtureOrganizations(ownerIds) {
     'SELECT COUNT(*)::integer AS count FROM wash_boxes WHERE branch_id = ANY($1::uuid[])',
     [branchIds],
   );
+  const services = await client.query(
+    'SELECT COUNT(*)::integer AS count FROM branch_services WHERE branch_id = ANY($1::uuid[])',
+    [branchIds],
+  );
   const deleted = await client.query('DELETE FROM organizations WHERE id = ANY($1::uuid[])', [ids]);
   return {
     ids,
@@ -324,6 +333,7 @@ async function deleteFixtureOrganizations(ownerIds) {
     branches: branchIds.length,
     openingHours: hours.rows[0].count,
     washBoxes: boxes.rows[0].count,
+    services: services.rows[0].count,
     count: deleted.rowCount ?? 0,
     memberships: memberships.rows[0].count,
   };
@@ -338,7 +348,8 @@ async function countChildren(ownerIds, organizationIds, branchIds) {
     (SELECT COUNT(*)::integer FROM organization_memberships WHERE user_id = ANY($1::uuid[]) OR organization_id = ANY($2::uuid[])) AS memberships,
     (SELECT COUNT(*)::integer FROM branches WHERE organization_id = ANY($2::uuid[])) AS branches,
     (SELECT COUNT(*)::integer FROM branch_opening_hours WHERE branch_id = ANY($3::uuid[])) AS "openingHours",
-    (SELECT COUNT(*)::integer FROM wash_boxes WHERE branch_id = ANY($3::uuid[])) AS "washBoxes"`,
+    (SELECT COUNT(*)::integer FROM wash_boxes WHERE branch_id = ANY($3::uuid[])) AS "washBoxes",
+    (SELECT COUNT(*)::integer FROM branch_services WHERE branch_id = ANY($3::uuid[])) AS services`,
     [ownerIds, organizationIds, branchIds],
   );
   return result.rows[0];

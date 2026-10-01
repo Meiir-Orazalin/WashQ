@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
 import pg from 'pg';
 import { getSafeTestDatabaseUrl } from '../test/safe-test-database-url.ts';
 
@@ -41,10 +42,18 @@ try {
   );
   target = new pg.Client({ connectionString: targetUrl.toString() });
   await target.connect();
+  const migrationDirectory = new URL('../prisma/migrations/', import.meta.url);
+  const expectedMigrations = readdirSync(migrationDirectory)
+    .filter((name) => existsSync(new URL(`${name}/migration.sql`, migrationDirectory)))
+    .sort();
   const migrations = await target.query(
-    'SELECT count(*)::integer AS count FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL',
+    'SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL ORDER BY migration_name',
   );
-  if (migrations.rows[0]?.count !== 7) throw new Error('Unexpected migration count');
+  if (
+    JSON.stringify(migrations.rows.map((row) => row.migration_name)) !==
+    JSON.stringify(expectedMigrations)
+  )
+    throw new Error('Unexpected migration history');
   const table = await target.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name = 'vehicles' AND table_schema = 'public'",
   );
@@ -172,8 +181,53 @@ try {
     )
   )
     throw new Error('Missing wash box integrity constraints');
+  const services = await target.query(
+    "SELECT column_name, data_type, is_nullable, column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='branch_services'",
+  );
+  if (
+    services.rows.length !== 10 ||
+    !services.rows
+      .filter((row) => row.column_name.endsWith('_at'))
+      .every((row) => row.data_type === 'timestamp with time zone') ||
+    !services.rows
+      .filter((row) => ['duration_minutes', 'price_minor'].includes(row.column_name))
+      .every((row) => row.data_type === 'integer') ||
+    !services.rows.some(
+      (row) => row.column_name === 'is_active' && row.column_default === 'true',
+    ) ||
+    !services.rows.every(
+      (row) => row.is_nullable === (row.column_name === 'description' ? 'YES' : 'NO'),
+    )
+  )
+    throw new Error('Unexpected service schema');
+  const serviceIndexes = await target.query(
+    "SELECT indexdef FROM pg_indexes WHERE tablename='branch_services'",
+  );
+  if (
+    serviceIndexes.rows.length !== 2 ||
+    !serviceIndexes.rows.some((row) =>
+      row.indexdef.includes('(branch_id, created_at DESC, id DESC)'),
+    )
+  )
+    throw new Error('Unexpected service indexes');
+  const serviceConstraints = await target.query(
+    "SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid='branch_services'::regclass",
+  );
+  if (
+    ![
+      'branch_services_duration_range',
+      'branch_services_price_range',
+      'branch_services_currency_kzt',
+    ].every((name) => serviceConstraints.rows.some((row) => row.conname === name)) ||
+    !serviceConstraints.rows.some(
+      (row) =>
+        row.definition.includes('REFERENCES branches(id)') &&
+        row.definition.includes('ON DELETE CASCADE'),
+    )
+  )
+    throw new Error('Missing service constraints');
   process.stdout.write(
-    'Clean database: all 7 migrations applied; vehicle, organization, branch and wash-box schemas, indexes/FKs/checks/timestamps verified; Prisma drift check passed.\n',
+    `Clean database: all ${expectedMigrations.length} migrations applied; vehicle, organization, branch, wash-box and service schemas, indexes/FKs/checks/timestamps verified; Prisma drift check passed.\n`,
   );
 } catch {
   process.stderr.write(

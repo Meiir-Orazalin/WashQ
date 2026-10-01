@@ -1,5 +1,18 @@
 # Frontend authentication lifecycle
 
+## Protected branch services (Version 2.4)
+
+AuthenticationProvider/channel production behavior is unchanged. Services uses
+runWithAccessToken and user/organization/branch(/service)-scoped keys, inside
+authenticated keyed subtrees only. Every other state immediately hides data/forms.
+Feature cleanup cancels/removes both service key families and aborts writes;
+account and branch navigation reset edits and confirmations. Stale success,
+401/404/500 cannot affect a newer account/resource. Response abort checks happen
+before authentication-error classification. Captured-key invalidation follows
+confirmed server success; there is no optimistic price/activity state or retry.
+Tokens never enter keys/cache/mutation results/markup. Browser cancellation does
+not guarantee rollback of an already committed original-scope server write.
+
 ## Protected wash boxes (Version 2.3)
 
 The provider/channel are unchanged. Wash-box list/detail keys capture user,

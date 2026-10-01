@@ -83,3 +83,4 @@ export {
   type UpdateVehicleResponse,
 } from './vehicle.js';
 export * from './wash-box.js';
+export * from './branch-service.js';

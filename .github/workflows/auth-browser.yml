@@ -105,6 +105,9 @@ jobs:
       - name: Run owner wash-box scenarios
         run: pnpm test:e2e:wash-boxes --project=chromium-auth
 
+      - name: Run owner service catalogue scenarios
+        run: pnpm test:e2e:services --project=chromium-auth
+
       - name: Sanitize authentication trace artifacts
         id: sanitize
         if: always()
@@ -218,6 +221,9 @@ jobs:
 
       - name: Run owner wash-box scenarios
         run: pnpm test:e2e:wash-boxes --project=${{ matrix.project }}
+
+      - name: Run owner service catalogue scenarios
+        run: pnpm test:e2e:services --project=${{ matrix.project }}
 
       - name: Sanitize authentication trace artifacts
         id: sanitize

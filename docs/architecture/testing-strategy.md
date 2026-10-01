@@ -1,5 +1,32 @@
 # Testing strategy
 
+## Version 2.4 service catalogue verification
+
+Contracts cover reused control-safe NFKC/text rules, nullable descriptions,
+strict partial updates, immutable/public-field rejection, integers and KZT.
+Exact decimal parser tests cover comma/dot, precision, junk/exponent/overflow,
+one minor unit, maximum and response-edit-request round trips.
+Application/source tests enforce public access before scoped persistence.
+Production-module HTTP tests cover all routes, generic authentication/privacy,
+spoof rejection, OpenAPI, sanitized failures and no credential logging.
+
+PostgreSQL verifies defaults, nonunique names, ordering, scope, nullable clearing,
+atomic combined patches, no-op/changed timestamps, direct constraint failures,
+concurrent independent-field and complete-pair updates, cascades/RESTRICT and
+unchanged customer/hour/box rows. The disposable migration verifier discovers
+the full history dynamically and checks service constraints/indexes/types/drift.
+
+Component/transport tests cover exact form conversion, changed-field edit/cancel,
+confirmation, pending latch, safe failures, cache privacy and stale success/
+401/404/500 across account and branch transitions. pnpm test:e2e:services uses
+the existing built API/web/PostgreSQL Chrome and WebKit harness, with persistence,
+fractional edits/description clearing/activity, owner/wrong-parent privacy,
+concurrency, delayed list/detail/PATCH across accounts and branch navigation.
+Existing CI runs the service suite sequentially after wash boxes. Cleanup counts
+services independently; namespaced organizations are removed before users.
+Live/integration suites sharing a database run sequentially. No Firefox or
+GitHub-hosted success is inferred from local tests.
+
 ## Version 2.3 wash-box verification
 
 Contracts cover strict integer/boolean shapes, bounds, UUID/timestamp validation,

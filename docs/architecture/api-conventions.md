@@ -1,5 +1,33 @@
 # API conventions
 
+## Branch service catalogue (Version 2.4)
+
+All routes under /api/v1/organizations/:organizationId/branches/:branchId/services
+require the existing endpoint-scoped Bearer guard, then public BranchOwnerAccess.
+Every path ID is a UUID. Unknown body/query and ownership/parent fields are rejected.
+
+POST returns 201 { service }; creation requires name, durationMinutes, priceMinor
+and literal currency KZT, accepts nullable/optional description, and assigns active.
+GET returns 200 { services }, including inactive rows, createdAt DESC/id DESC.
+GET /:serviceId returns 200 { service }, including inactive.
+PATCH /:serviceId returns 200 { service }; at least one of name, description,
+durationMinutes, priceMinor, isActive is required. Only description may be null;
+omission retains, blank/null clears. Currency, identity, parents and dates cannot
+be changed. Price/duration are atomic; explicit state never toggles blindly.
+No-op preserves updatedAt, actual change advances it, createdAt is preserved.
+
+Public fields: id, name, nullable description, durationMinutes, priceMinor,
+currency, isActive, ISO createdAt/updatedAt. No parent/user/membership data.
+Duration 1–1440 integer minutes; price 1–100000000 integer hundredths of KZT,
+not floating point or a recommended market price. Currency always KZT.
+Names are nonunique, so no artificial 409. No DELETE/filter/pagination.
+
+400 VALIDATION_ERROR; generic 401 AUTHENTICATION_REQUIRED; generic parent 404
+ORGANIZATION_NOT_FOUND/BRANCH_NOT_FOUND; SERVICE_NOT_FOUND after parent access.
+Foreign and missing match at each level. Unexpected failures are sanitized 500.
+OpenAPI includes strict schemas and all four protected operations.
+See [service architecture](branch-services.md).
+
 ## Owner-managed wash boxes (Version 2.3)
 
 All routes under `/api/v1/organizations/:organizationId/branches/:branchId/wash-boxes`
