@@ -1,5 +1,21 @@
 # Security baseline
 
+## Owner-authorized wash boxes (Version 2.3)
+
+Wash boxes consumes only public BranchOwnerAccess; parent membership persistence
+stays in organizations. Verified user identity is unchanged. Parent authorization
+precedes every box operation and every repository access includes branch scope.
+Foreign/missing resources match at each level. Strict contracts reject parent,
+ownership, immutable and credential fields; public output has no ownership IDs.
+Only recognized database constraints map to controlled errors. Cascades prevent
+orphans and membership RESTRICT is unchanged. Activity is not availability.
+
+User/resource-keyed UI hides on auth changes; abort/cancellation and removal cover
+list/detail caches and confirmations. Old-account and old-parent completions cannot
+change newer UI. No optimistic write, token storage, cookie reading, new guard or
+auth lifecycle modification. Exact fixture cleanup additionally verifies zero
+wash boxes. See [wash-box boundaries](wash-boxes.md).
+
 ## Owner-authorized branches (Version 2.2)
 
 Branches consumes only public OrganizationOwnerAccess, not organization persistence

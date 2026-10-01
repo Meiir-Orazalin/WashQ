@@ -1,5 +1,13 @@
 # Module boundaries
 
+## Wash boxes (Version 2.3)
+
+Wash boxes owns only bay persistence. Focused use cases consume branches' public
+framework-independent BranchOwnerAccess, never a private parent repository.
+Branches composes its existing organization-owner/scoped-detail use case behind
+that facade, returning only validated branchId. The wash-box repository always
+scopes by branch; detail/state writes also scope by box. See [wash boxes](wash-boxes.md).
+
 ## Branches (Version 2.2)
 
 Branches owns branches and weekly opening hours. Its four focused use cases depend

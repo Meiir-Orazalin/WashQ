@@ -27,6 +27,8 @@ export interface LiveAuthUser {
 }
 
 interface DatabaseCleanup {
+  deletedWashBoxes: number;
+  remainingWashBoxes: number;
   deletedBranches: number;
   deletedOpeningHours: number;
   remainingBranches: number;
@@ -415,6 +417,7 @@ async function runDatabaseCommand<Result>(action: string, argumentsAfterAction: 
 }
 
 function assertCleanupComplete(cleanup: DatabaseCleanup) {
+  expect(cleanup.remainingWashBoxes).toBe(0);
   expect(cleanup.remainingBranches).toBe(0);
   expect(cleanup.remainingOpeningHours).toBe(0);
   expect(cleanup.remainingOrganizations).toBe(0);

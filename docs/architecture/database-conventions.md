@@ -1,5 +1,23 @@
 # Database conventions
 
+## Wash boxes (Version 2.3)
+
+Forward migration `20260930150000_add_branch_wash_boxes` creates six columns only:
+UUID id, required UUID branch_id, integer number, default-true boolean is_active,
+created_at/updated_at timestamptz(3). Branch FK cascades, number CHECK is 1–999,
+and `(branch_id, number)` uniqueness reserves inactive numbers too. Its unique
+index supports scoped number ordering; only it and the primary-key index exist.
+No redundant organization ID or new role. Existing migrations remain immutable.
+
+One scoped atomic explicit-state SQL update returns only public application fields.
+No-op preserves updatedAt; changes use the later of database clock and prior time
+plus one millisecond. Concurrent assignments use committed ordering, not optimistic
+locking. Known duplicate/FK failures alone are mapped; other exceptions propagate.
+Fixture organization deletion cascades boxes through branches. Membership user
+RESTRICT and existing vehicle/session relations are retained. The clean-database
+verification now applies all seven migrations and checks wash-box schema, defaults,
+types, constraints, indexes and Prisma drift alongside all existing checks.
+
 ## Branches (Version 2.2)
 
 One forward migration `20260930113127_add_branches_and_weekly_opening_hours`

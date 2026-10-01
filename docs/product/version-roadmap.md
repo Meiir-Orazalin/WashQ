@@ -92,7 +92,8 @@ services, and prices.
 
 - [x] Version 2.1 — Organization creation and owner-only listing/detail.
 - [x] Version 2.2 — Organization-owned branches and opening hours.
-- [ ] Version 2.3 — Organization-owned wash boxes.
+- [x] Version 2.3 — Owner-authorized branch wash boxes.
+- [ ] Version 2.4 — Owner-authorized branch services and explicit pricing.
 
 Version 2.1 adds only minimal organizations and organization-scoped OWNER
 membership. Creation is transactional; lists/details require verified membership,
@@ -119,6 +120,22 @@ gates pass; see [Version 2.2 verification](../development/version-2.2-verificati
 Human review and hosted checks remain prerequisites to merge. Business Onboarding
 remains incomplete; no release tag is created. Next: Version 2.3 wash boxes,
 not employees, services, prices, bookings or queues.
+
+Version 2.3 starts at merged Version 2.2 `1638fa8`, containing `ddb9bf6`.
+It adds only owner-authorized wash-box creation/list/detail and explicit activity
+assignment. The branches public owner-access boundary resolves organization and
+branch scope before any box operation. Database uniqueness reserves each branch's
+number even while inactive; activity is configuration, not live occupancy or
+capacity. Identity/resource-scoped caches discard delayed old results on account
+or branch navigation. No authentication lifecycle behavior is changed.
+
+All required local contracts, unit, PostgreSQL, general/browser-regression,
+migration/drift and build gates pass; see
+[Version 2.3 verification](../development/version-2.3-verification.md). This marks
+only Version 2.3 implemented, not hosted verification or merge. Human review and
+passing hosted checks remain merge prerequisites; no business release tag is
+created. Business Onboarding remains incomplete. Next: Version 2.4 branch services
+and explicit prices, without employees, bookings, availability or queues.
 
 ## Version 3 — Marketplace
 

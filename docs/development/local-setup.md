@@ -1,5 +1,24 @@
 # Local setup
 
+## Owner-managed wash-box verification (Version 2.3)
+
+After Prisma generation and forward migrations on dev/test, build the API/web
+with the local public API URL and run `pnpm test:e2e:wash-boxes` on the qualified
+Chrome/Chromium and WebKit projects. Use the existing ignored local environment,
+not new credentials; do not print it. Run live suites sequentially against a shared
+test database and finish with `pnpm test:e2e:auth-sanitize` and
+`pnpm test:e2e:auth-cleanup`. Full-history/drift gate: `pnpm test:vehicle-migration`.
+
+Manually sign in, create an organization and branch, follow Manage wash boxes,
+create 2 then 1 and confirm numeric order after reload. Cancel Disable with no
+request, then confirm; inactive box 1 must remain visible/reserved and its owner
+detail must allow Enable. Repeated explicit PATCH values do not toggle. Compare
+foreign and random missing box errors within a valid branch and parent-level
+denials separately. Switch accounts while a response is delayed and navigate
+between owned branches; old results must not restore old forms/data or feedback.
+Activity is configuration, not free/busy status. Delete only namespaced fixture
+organizations before users, then verify zero remaining boxes and cascaded children.
+
 ## Version 2.2 branch verification
 
 Keep the existing ignored environment private. Install frozen dependencies, start

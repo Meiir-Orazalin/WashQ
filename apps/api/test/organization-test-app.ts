@@ -17,6 +17,11 @@ import {
 } from '../src/organizations/application/organization.repository.js';
 import { OrganizationsModule } from '../src/organizations/organizations.module.js';
 import { BranchesModule } from '../src/branches/branches.module.js';
+import { WashBoxesModule } from '../src/wash-boxes/wash-boxes.module.js';
+import {
+  WASH_BOX_REPOSITORY,
+  type WashBoxRepository,
+} from '../src/wash-boxes/application/wash-box.repository.js';
 import {
   BRANCH_REPOSITORY,
   type BranchRepository,
@@ -46,6 +51,7 @@ export async function createOrganizationTestApp(
   tokens: AccessTokenService,
   organizations: OrganizationRepository,
   branches?: BranchRepository,
+  washBoxes?: WashBoxRepository,
 ) {
   const module = await Test.createTestingModule({
     imports: [
@@ -53,6 +59,7 @@ export async function createOrganizationTestApp(
       OrganizationsModule,
       HealthModule,
       ...(branches ? [BranchesModule] : []),
+      ...(washBoxes ? [WashBoxesModule] : []),
     ],
   })
     .overrideProvider(PrismaService)
@@ -65,6 +72,8 @@ export async function createOrganizationTestApp(
     .useValue(organizations)
     .overrideProvider(BRANCH_REPOSITORY)
     .useValue(branches)
+    .overrideProvider(WASH_BOX_REPOSITORY)
+    .useValue(washBoxes)
     .compile();
   const app = module.createNestApplication();
   app.setGlobalPrefix('api/v1');

@@ -1,5 +1,26 @@
 # Testing strategy
 
+## Version 2.3 wash-box verification
+
+Contracts cover strict integer/boolean shapes, bounds, UUID/timestamp validation,
+and public ownership/internal rejection. Application/source-boundary tests enforce
+parent authorization before scoped persistence and public imports only. HTTP tests
+cover protected routes, generic 401/parent/box 404, deterministic conflict, input
+spoofing, OpenAPI and sanitized logs. Real PostgreSQL verifies defaults, reserved
+inactive numbers, per-branch uniqueness, concurrent duplicate creation, ordering,
+scoped assignments, no-op timestamps, cascades/RESTRICT and unchanged customer/hour
+records. The disposable migration gate checks all seven migrations and drift.
+
+Components/client tests cover validation, confirmation/cancel/focus, server-confirmed
+activity, pending latches, safe errors, identity/cache removal and stale mutation
+success/401/404/500 plus parent navigation. `pnpm test:e2e:wash-boxes` uses the
+existing built API/web/PG Chrome and WebKit fixture/sanitization harness. It verifies
+persistence/activity, reserved duplicates, concurrent 201/409, ownership/nesting,
+delayed list/detail/state across accounts and branch navigation. Cleanup counts
+wash boxes independently in the integrity-safe organization-before-user transaction.
+Shared-database live and integration gates run sequentially. Firefox remains
+unqualified; local gates do not establish hosted check success.
+
 ## Version 2.2 branch verification
 
 Shared contracts cover strict text/ownership boundaries, NFKC/limits/controls,

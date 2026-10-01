@@ -80,7 +80,14 @@ function OwnedBranchDetail({
             branchId={branchId}
             saved={query.data.branch.openingHours}
           />
-          <p>Wash boxes and services belong to later versions.</p>
+          <p>
+            <Link
+              href={`/business/organizations/${encodeURIComponent(organizationId)}/branches/${encodeURIComponent(branchId)}/wash-boxes`}
+            >
+              Manage wash boxes
+            </Link>
+          </p>
+          <p>Services belong to later versions.</p>
         </section>
       )}
       <Link href={`/business/organizations/${encodeURIComponent(organizationId)}/branches`}>
