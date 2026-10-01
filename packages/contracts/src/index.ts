@@ -82,3 +82,4 @@ export {
   type UpdateVehicleRequest,
   type UpdateVehicleResponse,
 } from './vehicle.js';
+export * from './wash-box.js';

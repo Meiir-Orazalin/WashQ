@@ -1,5 +1,32 @@
 # API conventions
 
+## Owner-managed wash boxes (Version 2.3)
+
+All routes under `/api/v1/organizations/:organizationId/branches/:branchId/wash-boxes`
+require endpoint-scoped Bearer authentication, then organization OWNER and scoped
+branch validation through the public branch-access boundary. All path IDs are
+UUIDs. Unknown body/query fields and ownership/parent fields are rejected.
+
+| Method/suffix       | Request                           | Success                                         |
+| ------------------- | --------------------------------- | ----------------------------------------------- |
+| POST                | Only `{ number }`, integer 1–999  | 201 `{ washBox }`, initially active             |
+| GET                 | No body                           | 200 `{ washBoxes }`, all rows number ASC/id ASC |
+| GET `/:washBoxId`   | No body                           | 200 `{ washBox }`, including inactive           |
+| PATCH `/:washBoxId` | Only `{ isActive }`, real boolean | 200 `{ washBox }`                               |
+
+Public fields are UUID id, number, isActive and ISO createdAt/updatedAt. Parent,
+user and membership IDs are not public fields. PATCH sets a value, never toggles;
+repeating it succeeds and preserves updatedAt. Changes advance updatedAt and
+retain createdAt/number. Activity is configuration, not real-time free/busy state.
+Inactive numbers remain reserved. No DELETE, renumbering, pagination or filtering.
+
+400 VALIDATION_ERROR; generic 401 AUTHENTICATION_REQUIRED; generic parent 404
+ORGANIZATION_NOT_FOUND/BRANCH_NOT_FOUND; detail/PATCH use WASH_BOX_NOT_FOUND once
+parent access succeeds. Foreign and missing resources match at each level.
+409 WASH_BOX_ALREADY_EXISTS means this branch's number is reserved, including
+inactive rows. Unexpected failures are sanitized 500. OpenAPI documents all four
+routes, strict schemas and explicit-state semantics. No cookie transport/retry.
+
 ## Branches and weekly schedules (Version 2.2)
 
 Endpoint-scoped Bearer/current-user authentication and organizations' public OWNER

@@ -18,6 +18,7 @@ Run commands from the repository root.
 | `pnpm test:e2e:profile`       | Run built Chrome/Chromium and WebKit profile lifecycle scenarios                                    |
 | `pnpm test:e2e:organizations` | Run built Chrome/Chromium and WebKit owner organization scenarios                                   |
 | `pnpm test:e2e:branches`      | Run built Chrome/Chromium and WebKit branch/local weekly schedule scenarios                         |
+| `pnpm test:e2e:wash-boxes`    | Run built Chrome/Chromium and WebKit owner wash-box/activity/isolation scenarios                    |
 | `pnpm test:vehicle-migration` | Verify full migration history, vehicle/organization schema and drift on a clean disposable database |
 | `pnpm format`                 | Write Prettier formatting                                                                           |
 | `pnpm format:check`           | Verify formatting without writing                                                                   |

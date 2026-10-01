@@ -13,10 +13,18 @@ import { GetOwnedBranchUseCase } from './application/get-owned-branch.use-case.j
 import { ReplaceBranchOpeningHoursUseCase } from './application/replace-branch-opening-hours.use-case.js';
 import { PrismaBranchRepository } from './infrastructure/prisma-branch.repository.js';
 import { BranchesController } from './presentation/branches.controller.js';
+import { BRANCH_OWNER_ACCESS } from './public.js';
+import { CurrentBranchOwnerAccess } from './application/current-branch-owner-access.js';
 @Module({
   imports: [AuthModule, DatabaseModule, OrganizationsModule],
   controllers: [BranchesController],
   providers: [
+    {
+      provide: BRANCH_OWNER_ACCESS,
+      inject: [GetOwnedBranchUseCase],
+      useFactory: (getOwnedBranch: GetOwnedBranchUseCase) =>
+        new CurrentBranchOwnerAccess(getOwnedBranch),
+    },
     PrismaBranchRepository,
     { provide: BRANCH_REPOSITORY, useExisting: PrismaBranchRepository },
     ...[
@@ -31,5 +39,6 @@ import { BranchesController } from './presentation/branches.controller.js';
         new useCase(access, repository),
     })),
   ],
+  exports: [BRANCH_OWNER_ACCESS],
 })
 export class BranchesModule {}

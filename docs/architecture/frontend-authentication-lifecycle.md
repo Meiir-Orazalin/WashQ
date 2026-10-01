@@ -1,5 +1,17 @@
 # Frontend authentication lifecycle
 
+## Protected wash boxes (Version 2.3)
+
+The provider/channel are unchanged. Wash-box list/detail keys capture user,
+organization, branch and optional box. Keyed subtrees hide on every unauthenticated
+or synchronization state and reset on parent navigation. Feature cleanup cancels
+and removes both key families and aborts pending creation/state assignments.
+Writes invalidate only captured resources after generation/mounted/abort checks.
+Transport rejects aborted late responses before 401 classification; no stale
+prior-branch failure can clear the current session. Mutation variables contain
+only validated input and cancellation signal; results contain no token or profile.
+Activity confirmation is local transient UI; no feature state enters authentication.
+
 ## Protected branches (Version 2.2)
 
 The existing authentication and non-sensitive channel remain unchanged. Branch

@@ -44,7 +44,7 @@ try {
   const migrations = await target.query(
     'SELECT count(*)::integer AS count FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL',
   );
-  if (migrations.rows[0]?.count !== 6) throw new Error('Unexpected migration count');
+  if (migrations.rows[0]?.count !== 7) throw new Error('Unexpected migration count');
   const table = await target.query(
     "SELECT count(*)::integer AS count FROM information_schema.columns WHERE table_name = 'vehicles' AND table_schema = 'public'",
   );
@@ -133,8 +133,47 @@ try {
     )
   )
     throw new Error('Missing branch integrity constraint');
+  const boxColumns = await target.query(
+    "SELECT column_name, data_type, column_default, is_nullable FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'wash_boxes'",
+  );
+  if (
+    boxColumns.rows.length !== 6 ||
+    !boxColumns.rows
+      .filter((row) => row.column_name.endsWith('_at'))
+      .every((row) => row.data_type === 'timestamp with time zone') ||
+    !boxColumns.rows.every((row) => row.is_nullable === 'NO') ||
+    !boxColumns.rows.some((row) => row.column_name === 'is_active' && row.column_default === 'true')
+  )
+    throw new Error('Unexpected wash box columns');
+  const boxIndexes = await target.query(
+    "SELECT indexdef FROM pg_indexes WHERE tablename = 'wash_boxes'",
+  );
+  if (
+    boxIndexes.rows.length !== 2 ||
+    !boxIndexes.rows.some(
+      (row) => row.indexdef.includes('UNIQUE') && row.indexdef.includes('(branch_id, number)'),
+    )
+  )
+    throw new Error('Unexpected wash box indexes');
+  const boxConstraints = await target.query(
+    "SELECT conname, pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE conrelid = 'wash_boxes'::regclass",
+  );
+  if (
+    !boxConstraints.rows.some(
+      (row) =>
+        row.definition.includes('REFERENCES branches(id)') &&
+        row.definition.includes('ON DELETE CASCADE'),
+    ) ||
+    !boxConstraints.rows.some(
+      (row) =>
+        row.conname === 'wash_boxes_number_range' &&
+        row.definition.includes('999') &&
+        row.definition.includes('1'),
+    )
+  )
+    throw new Error('Missing wash box integrity constraints');
   process.stdout.write(
-    'Clean database: all 6 migrations applied; vehicle, organization and branch schemas, indexes/FKs/checks/timestamps verified; Prisma drift check passed.\n',
+    'Clean database: all 7 migrations applied; vehicle, organization, branch and wash-box schemas, indexes/FKs/checks/timestamps verified; Prisma drift check passed.\n',
   );
 } catch {
   process.stderr.write(

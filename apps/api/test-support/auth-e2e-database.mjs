@@ -116,6 +116,7 @@ try {
     writeResult(cleanup);
     if (
       cleanup.deletedUsers > 0 ||
+      cleanup.deletedWashBoxes > 0 ||
       cleanup.deletedSessions > 0 ||
       cleanup.deletedOrganizations > 0 ||
       cleanup.deletedMemberships > 0 ||
@@ -213,6 +214,8 @@ async function cleanupExactEmails(emails) {
       remainingMemberships: remainingChildren.memberships,
       deletedBranches: organizations.branches,
       deletedOpeningHours: organizations.openingHours,
+      deletedWashBoxes: organizations.washBoxes,
+      remainingWashBoxes: remainingChildren.washBoxes,
       remainingBranches: remainingChildren.branches,
       remainingOpeningHours: remainingChildren.openingHours,
     };
@@ -250,6 +253,8 @@ async function cleanupPrefix(prefix) {
       remainingMemberships: remainingChildren.memberships,
       deletedBranches: organizations.branches,
       deletedOpeningHours: organizations.openingHours,
+      deletedWashBoxes: organizations.washBoxes,
+      remainingWashBoxes: remainingChildren.washBoxes,
       remainingBranches: remainingChildren.branches,
       remainingOpeningHours: remainingChildren.openingHours,
     };
@@ -308,12 +313,17 @@ async function deleteFixtureOrganizations(ownerIds) {
     'SELECT COUNT(*)::integer AS count FROM branch_opening_hours WHERE branch_id = ANY($1::uuid[])',
     [branchIds],
   );
+  const boxes = await client.query(
+    'SELECT COUNT(*)::integer AS count FROM wash_boxes WHERE branch_id = ANY($1::uuid[])',
+    [branchIds],
+  );
   const deleted = await client.query('DELETE FROM organizations WHERE id = ANY($1::uuid[])', [ids]);
   return {
     ids,
     branchIds,
     branches: branchIds.length,
     openingHours: hours.rows[0].count,
+    washBoxes: boxes.rows[0].count,
     count: deleted.rowCount ?? 0,
     memberships: memberships.rows[0].count,
   };
@@ -327,7 +337,8 @@ async function countChildren(ownerIds, organizationIds, branchIds) {
     (SELECT COUNT(*)::integer FROM organizations WHERE id = ANY($2::uuid[])) AS organizations,
     (SELECT COUNT(*)::integer FROM organization_memberships WHERE user_id = ANY($1::uuid[]) OR organization_id = ANY($2::uuid[])) AS memberships,
     (SELECT COUNT(*)::integer FROM branches WHERE organization_id = ANY($2::uuid[])) AS branches,
-    (SELECT COUNT(*)::integer FROM branch_opening_hours WHERE branch_id = ANY($3::uuid[])) AS "openingHours"`,
+    (SELECT COUNT(*)::integer FROM branch_opening_hours WHERE branch_id = ANY($3::uuid[])) AS "openingHours",
+    (SELECT COUNT(*)::integer FROM wash_boxes WHERE branch_id = ANY($3::uuid[])) AS "washBoxes"`,
     [ownerIds, organizationIds, branchIds],
   );
   return result.rows[0];

@@ -18,6 +18,11 @@ minute fields. Prisma and transaction APIs stay in infrastructure.
 
 ## Time and atomicity
 
+Version 2.3 exports `BranchOwnerAccess` through `branches/public`. Its facade
+reuses the existing owned-branch use case and returns only frozen `{ branchId }`.
+Wash boxes receives neither opening hours nor private persistence. Branch detail
+now links to owner-managed wash boxes; branch editing/deletion remains absent.
+
 See [ADR 0014](../decisions/0014-branch-local-weekly-opening-hours.md). Branch zones
 are IANA identifiers validated with Intl. Weekly schedules are local wall-clock
 minutes; HH:mm is never converted through a browser zone. Each saved week has

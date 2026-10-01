@@ -56,6 +56,11 @@ owner-access boundary. See [branches](branches.md) and the
 
 ## Runtime boundaries
 
+Version 2.3 adds owner-managed branch wash boxes through branches' public
+owner-access facade, with per-branch reserved numbers and explicit activity
+configuration. It adds no occupancy, availability, service, booking or queue logic.
+See [wash boxes](wash-boxes.md).
+
 - The browser communicates only through the versioned REST API.
 - The web application parses API responses before using them.
 - The API owns persistence access; Prisma is confined to database and future

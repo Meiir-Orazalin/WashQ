@@ -482,6 +482,27 @@ footer {
   overflow-wrap: anywhere;
 }
 
+.wash-box-form {
+  max-width: 30rem;
+  margin: 1.5rem 0;
+}
+
+.wash-box-badge {
+  display: inline-block;
+  border: 1px solid #24714e;
+  border-radius: 1rem;
+  padding: 0.2rem 0.65rem;
+  color: #185236;
+  background: #e8f5ed;
+  font-weight: 700;
+}
+
+.wash-box-badge--inactive {
+  border-color: #64748b;
+  color: #334155;
+  background: #f1f5f9;
+}
+
 .organizations-page textarea {
   resize: vertical;
   min-height: 7rem;
